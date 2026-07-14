@@ -1,13 +1,17 @@
-# ⚡ Warp Transfer
+<h1 align="center">⚡ Warp Transfer</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)]()
-[![UI: PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)]()
+<p align="center">
+  <b>A premium, high-speed, bi-directional Android-to-PC and PC-to-Android file transfer utility bypassing MTP via ADB.</b>
+</p>
 
-**Warp Transfer** is a premium, high-speed, **bi-directional** Android-to-PC and PC-to-Android file transfer utility. 
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python: 3.10+"></a>
+  <img src="https://img.shields.io/badge/Platform-Windows-lightgrey.svg" alt="Platform: Windows">
+  <img src="https://img.shields.io/badge/UI-PyQt6-green.svg" alt="UI: PyQt6">
+</p>
 
-Designed as a modern, fluent-styled desktop application for Windows, it bypasses the sluggishness, freezing, and instability of the standard Windows Media Transfer Protocol (MTP) by utilizing Android Debug Bridge (ADB) under the hood driven by a multi-threaded parallel copy engine.
+Designed as a modern, fluent-styled desktop application for Windows, Warp Transfer bypasses the sluggishness, freezing, and instability of the standard Windows Media Transfer Protocol (MTP) by utilizing Android Debug Bridge (ADB) under the hood driven by a multi-threaded parallel copy engine.
 
 ---
 
