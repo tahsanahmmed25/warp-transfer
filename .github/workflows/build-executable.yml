@@ -30,7 +30,7 @@ jobs:
 
     - name: Build Executable with PyInstaller
       run: |
-        pyinstaller --onedir --noconsole --icon=icon.ico --add-data "icon.ico;." --name=Warp-Transfer main.py
+        pyinstaller --onedir --noconsole --icon=icon.ico --add-data "icon.ico;." --version-file=file_version_info.txt --name=Warp-Transfer main.py
 
     - name: Compress Build output to Zip
       shell: pwsh
