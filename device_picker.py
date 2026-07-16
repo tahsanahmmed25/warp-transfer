@@ -7,9 +7,11 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
+from theme_utils import tag_theme_recursive
+
 
 class DevicePickerDialog(QDialog):
-    def __init__(self, devices: list, parent=None):
+    def __init__(self, devices: list, is_dark: bool, parent=None):
         """devices: list of {"id","status","model"} dicts from
         AdbManager.list_all_devices()."""
         super().__init__(parent)
@@ -68,6 +70,12 @@ class DevicePickerDialog(QDialog):
 
         outer.addWidget(card)
 
+        # FIX (queue item #1): this dialog previously had NO is_dark
+        # parameter at all -- it always rendered with whatever the QSS
+        # default happened to be, same class of gap as ConflictDialog but
+        # this one didn't even have the parameter plumbed through yet.
+        tag_theme_recursive(self, is_dark)
+
     def _build_device_row(self, device: dict) -> QWidget:
         row = QPushButton()
         row.setObjectName("QuickActionButton")
@@ -103,7 +111,7 @@ class DevicePickerDialog(QDialog):
         self.accept()
 
     @staticmethod
-    def ask(devices: list, parent=None):
+    def ask(devices: list, is_dark: bool, parent=None):
         """Returns the chosen device id, or None if cancelled / nothing
         selectable."""
         selectable = [d for d in devices if d.get("status") == "device"]
@@ -111,7 +119,7 @@ class DevicePickerDialog(QDialog):
             return None
         if len(selectable) == 1:
             return selectable[0]["id"]
-        dlg = DevicePickerDialog(devices, parent)
+        dlg = DevicePickerDialog(devices, is_dark, parent)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             return dlg.selected_device_id
         return None

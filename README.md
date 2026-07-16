@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python: 3.10+"></a>
+  <img src="https://img.shields.io/badge/Version-1.0.0--stable-blue.svg" alt="Version: 1.0.0-stable">
   <img src="https://img.shields.io/badge/Platform-Windows-lightgrey.svg" alt="Platform: Windows">
   <img src="https://img.shields.io/badge/UI-PyQt6-green.svg" alt="UI: PyQt6">
 </p>

@@ -73,6 +73,14 @@ class AdbManager(QObject):
 
         self.current_status = "disconnected"
         self.current_device = ""
+        # Raw ADB serial for whatever device check_devices() last saw, kept
+        # separate from current_device (which is the human-friendly model
+        # name for "connected" status). MainWindow needs the stable serial
+        # -- not the display name -- as the dict key for config["known_devices"]
+        # (Phase 4, localsend_parity_plan.md), since a friendly name isn't a
+        # reliable identifier and "offline"/"unauthorized" states report the
+        # serial as `device` anyway while "connected" reports the model name.
+        self.current_device_id = ""
 
         # When more than one device/emulator is attached, ADB refuses to
         # target one implicitly. Once the user picks a device via the
@@ -119,10 +127,23 @@ class AdbManager(QObject):
             if sys.platform == "win32":
                 creationflags = subprocess.CREATE_NO_WINDOW
 
+            # encoding/errors explicit rather than relying on subprocess's
+            # text=True default, which falls back to the OS's preferred
+            # codepage (cp1252 on this Windows setup). adb's stdout can
+            # contain bytes outside cp1252 (e.g. non-ASCII filenames on the
+            # phone), which previously crashed the subprocess reader thread
+            # with UnicodeDecodeError -- silently killing that thread and
+            # leaving result.stdout as None, which then blew up any caller
+            # doing stdout.strip() (see scan_source_items in
+            # transfer_engine.py). UTF-8 + errors='replace' means a stray
+            # undecodable byte becomes a replacement character instead of
+            # crashing the read entirely.
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 creationflags=creationflags,
                 timeout=timeout
             )
@@ -191,12 +212,15 @@ class AdbManager(QObject):
         if not device_lines:
             status, device = "disconnected", ""
             self.target_device_id = None
+            self.current_device_id = ""
         elif len(device_lines) > 1:
             status, device = "multiple", f"{len(device_lines)} devices connected"
+            self.current_device_id = ""
         else:
             parts = device_lines[0].split()
             device_id = parts[0]
             device_state = parts[1] if len(parts) > 1 else "unknown"
+            self.current_device_id = device_id
 
             if device_state == "device":
                 # Only one device is present, so it's the implicit target --

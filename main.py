@@ -12,7 +12,7 @@ from PyQt6.QtCore import Qt, QSize, QTimer, QPoint, QPropertyAnimation, QRect, Q
 from PyQt6.QtGui import QColor, QIcon, QPixmap, QPainter, QDragEnterEvent, QDropEvent
 from PyQt6.QtSvg import QSvgRenderer
 
-from app_style import APP_STYLE_DARK, APP_STYLE_LIGHT
+from app_style import APP_STYLE
 from adb_manager import AdbManager
 from onboarding_wizard import OnboardingWizard
 from transfer_engine import TransferCoordinator
@@ -20,6 +20,10 @@ import history_manager
 from conflict_dialog import ConflictDialog
 from device_picker import DevicePickerDialog
 from wireless_connect_dialog import WirelessConnectDialog
+from phone_browser_dialog import PhoneBrowserDialog
+from copy_move_dialog import CopyMoveDialog
+from ui_transitions import fade_to_page
+from theme_utils import tag_theme_recursive
 
 # Raw SVG Icons (Lucide style)
 SVG_PHONE = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>'
@@ -178,6 +182,28 @@ class QuickActionButton(QPushButton):
         self._animate_to(16, 3)
         super().leaveEvent(event)
 
+    def sizeHint(self):
+        # QPushButton (via QAbstractButton) overrides sizeHint()/
+        # minimumSizeHint() to compute size from the button's own text/icon
+        # via QStyle -- it does NOT delegate to a child layout even when one
+        # is set directly on the button (as _build_quick_action does with
+        # badge/title/desc). Since this button never calls setText()/
+        # setIcon(), the un-overridden sizeHint() reported a near-empty
+        # size, so the outer quick_grid QHBoxLayout allocated far less
+        # height than badge+title+desc actually need -- the inner QVBoxLayout
+        # then had to compress its children into that undersized rect,
+        # which is what produced the icon-badge-over-title overlap seen on
+        # real-device testing (dev_notes.md Session N+6). Delegating to the
+        # layout's own sizeHint fixes this at the source.
+        if self.layout():
+            return self.layout().sizeHint()
+        return super().sizeHint()
+
+    def minimumSizeHint(self):
+        if self.layout():
+            return self.layout().minimumSize()
+        return super().minimumSizeHint()
+
 
 class DragDropZone(QWidget):
     files_dropped = pyqtSignal(list)
@@ -248,7 +274,17 @@ class MainWindow(QMainWindow):
         self.settings_page_widget = None
         
         self.setWindowTitle("Warp Transfer")
-        self.setFixedSize(760, 600)
+        # 760x600 is the visible card size; +48 in each dimension (24px on
+        # every side) is transparent padding for main_container's ambient
+        # drop shadow (blur=40 in apply_theme()) to bleed into. Previously
+        # main_container filled the window with zero margin, so the shadow's
+        # blur radius extended past the window's actual pixel bounds --
+        # Qt then tried to composite a paint region larger than the native
+        # HWND's layered-window buffer, which Windows rejected with
+        # "UpdateLayeredWindowIndirect failed ... (The parameter is
+        # incorrect.)" on every apply_theme() call (visible in the console
+        # on launch and on every theme toggle -- see Session N+9 screenshot).
+        self.setFixedSize(760 + 48, 600 + 48)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
@@ -264,6 +300,12 @@ class MainWindow(QMainWindow):
         self.is_paused = False
         self._transfer_start_time = 0
         self._transfer_context = {}  # direction/op_type for history logging
+        # Phase 2 (motion): tracks whether a page cross-fade is still
+        # animating, and holds refs to in-flight animations so PyQt doesn't
+        # garbage-collect them mid-flight (see ui_transitions.fade_to_page).
+        self._transition_in_progress = False
+        self._page_fade_anim = None
+        self._theme_fade_anim = None
         
         self.init_ui()
         self.apply_theme()
@@ -303,11 +345,40 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    def _remember_known_device(self, device_id: str, friendly_name: str):
+        """Phase 4 (localsend_parity_plan.md): persist a successfully-connected
+        device into config["known_devices"] = {device_id: friendly_name}, so
+        OnboardingWizard can show the lightweight reconnect view instead of
+        the full first-time setup wizard next time this exact device shows up.
+        NOTE: this was previously read at one call site but never written
+        anywhere -- known_devices stayed permanently empty, so the reconnect
+        view could never actually trigger. Only writes+saves when the value
+        genuinely changed, since this is called from the 1.5s poll timer and
+        a disk write on every single tick while already connected would be
+        wasteful."""
+        if not device_id:
+            return
+        known = self.config.setdefault("known_devices", {})
+        if known.get(device_id) != friendly_name:
+            known[device_id] = friendly_name
+            self.save_config()
+
     def init_ui(self):
+        # Outer transparent wrapper providing the padding main_container's
+        # shadow needs (see setFixedSize's comment in __init__ for why this
+        # exists). main_container itself keeps its own object name/QSS and
+        # visible rounded-rect styling unchanged -- only WHERE it sits inside
+        # the window changed, not what it looks like.
+        outer_wrapper = QWidget(self)
+        self.setCentralWidget(outer_wrapper)
+        outer_wrapper_layout = QVBoxLayout(outer_wrapper)
+        outer_wrapper_layout.setContentsMargins(24, 24, 24, 24)
+        outer_wrapper_layout.setSpacing(0)
+
         # Window Shadow & Rounded Outline Container
-        self.main_container = QWidget(self)
+        self.main_container = QWidget(outer_wrapper)
         self.main_container.setObjectName("MainWindowContainer")
-        self.setCentralWidget(self.main_container)
+        outer_wrapper_layout.addWidget(self.main_container)
         
         main_layout = QVBoxLayout(self.main_container)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -396,17 +467,23 @@ class MainWindow(QMainWindow):
         self.title_bar.mouseMoveEvent = self.title_bar_move
 
     def apply_theme(self):
-        # 1. Apply Stylesheet at the APPLICATION level (not just this window)
-        # so every top-level dialog (conflict resolution, device picker,
-        # wireless connect) automatically picks up the same CardContainer /
-        # PrimaryButton / etc. styling without each dialog re-declaring it.
-        stylesheet = APP_STYLE_DARK if self.is_dark_mode else APP_STYLE_LIGHT
+        # Phase 3 rewrite: APP_STYLE (app_style.py) is ONE merged stylesheet
+        # whose selectors are gated on a `theme="dark"/"light"` dynamic QSS
+        # property, loaded into the QApplication exactly ONCE (guarded by
+        # _warp_stylesheet_loaded below). Toggling theme no longer calls
+        # setStyleSheet() again -- that used to force Qt to fully re-parse
+        # and re-cascade the entire stylesheet string across the whole
+        # widget tree on every single click (see dev_notes.md Session N+2/
+        # N+3 for the black-square-flash bug this caused). Now toggling just
+        # flips the `theme` property + unpolish()/polish() via _tag_theme(),
+        # which only re-matches selectors -- much cheaper.
         app = QApplication.instance()
-        if app:
-            app.setStyleSheet(stylesheet)
-        else:
-            self.setStyleSheet(stylesheet)
-        
+        if app and not getattr(app, "_warp_stylesheet_loaded", False):
+            app.setStyleSheet(APP_STYLE)
+            app._warp_stylesheet_loaded = True
+
+        self._tag_theme(self)
+
         # 2. Update Window Border Color based on theme
         bg_color = "#0C0C0E" if self.is_dark_mode else "#F2F2F7"
         border_color = "#1E1E24" if self.is_dark_mode else "#D1D1D6"
@@ -425,21 +502,36 @@ class MainWindow(QMainWindow):
         # 3. Render titlebar and toggle icons
         self.title_logo.setPixmap(get_svg_pixmap(get_svg_content("phone", self.is_dark_mode), QSize(18, 18)))
         
-        toggle_svg = get_svg_content("sun" if self.is_dark_mode else "moon", self.is_dark_mode)
-        self.theme_btn.setIcon(QIcon(get_svg_pixmap(toggle_svg, QSize(14, 14))))
-        self.theme_btn.setStyleSheet("background: transparent; border: none; border-radius: 14px;")
+        # Icon pixmaps are swapped per-theme here (get_svg_content bakes the
+        # accent color into the SVG string, so no QSS property change alone
+        # covers that) -- but the buttons' own background/border/hover/pressed
+        # appearance is NOT set here anymore. It used to be: every one of
+        # these 5 buttons got an instance-level setStyleSheet("background:
+        # transparent; border: none; ...") call on every single toggle, even
+        # though #TitleBarButton's QSS base rule (app_style.py) already
+        # declares the identical unconditional background/border, and
+        # #TitleBarButton[theme="..."]:hover/:pressed already define the
+        # correct per-theme hover colors. Mixing an instance-level stylesheet
+        # with the property-based global QSS on the same widgets, re-applied
+        # every toggle, is what caused settings_btn/theme_btn specifically to
+        # sometimes render the WRONG theme's hover/pressed color as a
+        # persistent solid box (confirmed via screenshot: a white box on
+        # settings/theme in dark mode, a black box on the same two in light
+        # mode -- exactly the opposite theme's #TitleBarButton hover color in
+        # both cases). Deleting the redundant instance stylesheets and
+        # letting _tag_theme()'s property+polish mechanism own these buttons
+        # completely, same as every other themed widget in the app, removes
+        # the conflict at the source instead of chasing the exact Qt caching
+        # quirk that triggered it.
+        self.theme_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("sun" if self.is_dark_mode else "moon", self.is_dark_mode), QSize(14, 14))))
 
         self.history_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("history", self.is_dark_mode), QSize(15, 15))))
-        self.history_btn.setStyleSheet("background: transparent; border: none; border-radius: 14px;")
 
         self.settings_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("settings", self.is_dark_mode), QSize(15, 15))))
-        self.settings_btn.setStyleSheet("background: transparent; border: none; border-radius: 14px;")
         
         self.min_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("minimize", self.is_dark_mode), QSize(14, 14))))
-        self.min_btn.setStyleSheet("background: transparent; border: none; border-radius: 14px;")
         
         self.close_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("close", self.is_dark_mode), QSize(14, 14))))
-        self.close_btn.setStyleSheet("background: transparent; border: none; border-radius: 14px;")
         
         # 4. Propagate theme updates to child elements if active
         if self.dashboard_page_widget:
@@ -449,6 +541,50 @@ class MainWindow(QMainWindow):
         # Settings/History pages are rebuilt fresh each time they're shown,
         # so no live-refresh needed for them here.
 
+    def _tag_theme(self, widget):
+        """Recursively set the `theme` dynamic property (+ unpolish/polish)
+        on `widget` and every descendant. Qt QSS attribute selectors like
+        [theme="dark"] are NOT inherited from an ancestor -- each widget
+        needs the property set on itself for its own rules to match. Call
+        this from apply_theme() on toggle (covers self + whatever's already
+        built), AND on any newly created widget subtree (new pages) so it
+        picks up the CURRENT theme immediately instead of waiting for the
+        next toggle to get tagged.
+
+        FIXED (was a known gap through Session N+9): ConflictDialog and
+        DevicePickerDialog previously built+exec()'d themselves in one
+        static ask(...) call, so MainWindow never had a handle to tag them
+        before they showed. Both dialogs now call the same
+        theme_utils.tag_theme_recursive() this method delegates to,
+        themselves, from their own __init__ -- see conflict_dialog.py /
+        device_picker.py. WirelessConnectDialog was already covered, since
+        MainWindow constructs it directly (see open_wireless_dialog).
+        """
+        # Delegates to the shared theme_utils.tag_theme_recursive() helper
+        # (queue item #1 fix) -- previously this loop lived only here, which
+        # is exactly why ConflictDialog/DevicePickerDialog never got tagged:
+        # there was nothing for them to call. Extracting it means both
+        # dialogs now get the identical, already-proven-correct behavior
+        # (including the setUpdatesEnabled freeze from Session N+8) instead
+        # of a duplicated or simplified copy.
+        tag_theme_recursive(widget, self.is_dark_mode)
+
+    def _fade_transition(self, target):
+        """Cross-fade `stacked_pages` to `target` (page index or widget) via
+        the shared `fade_to_page` helper (ui_transitions.py) instead of a
+        hard setCurrentIndex()/setCurrentWidget() cut -- see
+        localsend_parity_plan.md Phase 2. Sets `_transition_in_progress` for
+        the fade's duration so check_device_connection's 1.5s poll doesn't
+        stack a second automatic dashboard<->onboarding transition on top of
+        one that's still animating. Keeps the returned animation on
+        `self._page_fade_anim` so it isn't garbage-collected mid-flight."""
+        self._transition_in_progress = True
+
+        def _done():
+            self._transition_in_progress = False
+
+        self._page_fade_anim = fade_to_page(self.stacked_pages, target, on_finished=_done)
+
     def device_icon_badge_refresh(self):
         # Rebuild the phone icon inside the connected-device badge for the
         # current theme's accent colour.
@@ -457,9 +593,31 @@ class MainWindow(QMainWindow):
 
     def toggle_theme(self):
         self.is_dark_mode = not self.is_dark_mode
-        self.config["theme"] = "dark" if self.is_dark_mode else "light"
-        self.save_config()
+        # Repaint first, persist after. apply_theme() is now cheap (Phase 3:
+        # property flip + unpolish/polish instead of a full-app
+        # setStyleSheet() re-parse), but there's no reason to make the
+        # config disk write block the repaint either way, so it still stays
+        # deferred via QTimer.singleShot(0, ...) to the next event-loop
+        # iteration.
         self.apply_theme()
+
+        # Phase 2 (motion): a brief cross-fade to smooth over any remaining
+        # one-frame pop from the property swap. Animates the whole window's
+        # native windowOpacity rather than a per-widget QGraphicsOpacityEffect
+        # -- main_container already carries a QGraphicsDropShadowEffect
+        # (re-applied by apply_theme()'s add_shadow() call on every toggle),
+        # and a QWidget can only hold one graphics effect at a time, so an
+        # opacity effect on main_container would fight the shadow instead of
+        # coexisting with it. windowOpacity sidesteps that entirely.
+        self._theme_fade_anim = QPropertyAnimation(self, b"windowOpacity")
+        self._theme_fade_anim.setDuration(120)
+        self._theme_fade_anim.setStartValue(0.85)
+        self._theme_fade_anim.setEndValue(1.0)
+        self._theme_fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._theme_fade_anim.start()
+
+        self.config["theme"] = "dark" if self.is_dark_mode else "light"
+        QTimer.singleShot(0, self.save_config)
 
     def close_app(self):
         if self.active_coordinator:
@@ -538,6 +696,7 @@ class MainWindow(QMainWindow):
         
         idx = self.stacked_pages.addWidget(page)
         self.stacked_pages.setCurrentIndex(idx)
+        self._tag_theme(page)
         
         self._start_download_worker()
 
@@ -599,11 +758,17 @@ class MainWindow(QMainWindow):
         status, device = self.adb_manager.check_devices()
 
         if status == "connected":
+            self._remember_known_device(self.adb_manager.current_device_id, device)
             self.show_dashboard_page(device)
         else:
             self.show_onboarding_page()
 
     def check_device_connection(self):
+        # Phase 2 (motion): skip checking/updating connection status while
+        # a transition is actively animating.
+        if self._transition_in_progress:
+            return
+
         # Triggered by timer
         status, device = self.adb_manager.check_devices()
         
@@ -614,9 +779,17 @@ class MainWindow(QMainWindow):
             # OnboardingWizard.update_connection_status() was fully built and documented as
             # being "called by MainWindow every poll tick" but nothing ever actually called
             # it -- unauthorized/multiple/offline never reached the UI.
-            self.onboarding_page_widget.update_connection_status(status, device)
+            #
+            # known_devices is now passed here too (previously omitted) -- without it,
+            # the reconnect view (Phase 4) would show correctly for exactly one frame
+            # right when show_onboarding_page() first ran, then immediately flip back
+            # to the full first-time wizard on THIS method's very next 1.5s tick, since
+            # update_connection_status()'s known_devices arg would silently default to
+            # None/{} here and override the correct earlier call.
+            self.onboarding_page_widget.update_connection_status(status, device, self.config.get("known_devices", {}))
         if status == "connected" and self.onboarding_page_widget and curr_page == self.onboarding_page_widget:
             # Transition to dashboard smoothly
+            self._remember_known_device(self.adb_manager.current_device_id, device)
             self.show_dashboard_page(device)
         elif status != "connected" and self.dashboard_page_widget and curr_page == self.dashboard_page_widget:
             # Transition back to onboarding setup
@@ -625,33 +798,48 @@ class MainWindow(QMainWindow):
     # Create & display Onboarding View
     def show_onboarding_page(self):
         if self.onboarding_page_widget:
-            self.stacked_pages.setCurrentWidget(self.onboarding_page_widget)
             status, device = self.adb_manager.check_devices()
-            self.onboarding_page_widget.update_connection_status(status, device)
+            # FIX: this branch was missing the known_devices arg that the
+            # "build fresh" branch below (and check_device_connection's own
+            # poll-tick call) both correctly pass -- found on a fresh
+            # re-verification pass, not caught by the Session N+11 fix to
+            # check_device_connection. This branch runs any time the wizard
+            # widget already exists and is just being re-shown (e.g. a
+            # second+ disconnect in the same app session reuses the cached
+            # instance), so without this it would flicker the reconnect view
+            # back to the full first-time wizard for one frame until the
+            # next 1.5s poll tick corrected it.
+            self.onboarding_page_widget.update_connection_status(status, device, self.config.get("known_devices", {}))
+            self._fade_transition(self.onboarding_page_widget)
             return
             
         self.onboarding_page_widget = OnboardingWizard(self.adb_manager)
         self.onboarding_page_widget.choose_device_clicked.connect(self.handle_choose_device)
         self.onboarding_page_widget.connect_wirelessly_clicked.connect(self.open_wireless_dialog)
+        # Wire the wizard's "Finish" button (emits `finished` on step 4) --
+        # previously unconnected, so clicking Finish did nothing at all.
+        self.onboarding_page_widget.finished.connect(self.show_onboarding_or_dashboard)
         self.stacked_pages.addWidget(self.onboarding_page_widget)
-        self.stacked_pages.setCurrentWidget(self.onboarding_page_widget)
         # Show real status immediately rather than leaving the banner blank until the
         # first timer tick fires.
         status, device = self.adb_manager.check_devices()
-        self.onboarding_page_widget.update_connection_status(status, device)
+        self.onboarding_page_widget.update_connection_status(status, device, self.config.get("known_devices", {}))
+        self._fade_transition(self.onboarding_page_widget)
+        self._tag_theme(self.onboarding_page_widget)
 
     def handle_choose_device(self):
         """Wired to OnboardingWizard's 'Choose Device' button, shown when
         check_devices() reports 'multiple'. Lets the user pick a specific
         device instead of being stuck until all-but-one are unplugged."""
         devices = self.adb_manager.list_all_devices()
-        chosen_id = DevicePickerDialog.ask(devices, self)
+        chosen_id = DevicePickerDialog.ask(devices, self.is_dark_mode, self)
         if chosen_id:
             self.adb_manager.set_target_device(chosen_id)
             self.show_onboarding_or_dashboard()
 
     def open_wireless_dialog(self):
         dlg = WirelessConnectDialog(self.adb_manager, self)
+        self._tag_theme(dlg)
         dlg.exec()
         # Re-check immediately in case a connect/pair succeeded, rather than
         # waiting up to 1.5s for the next poll tick.
@@ -662,6 +850,19 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def show_settings_page(self):
+        # FIX (real-device report: navigating to Settings mid-transfer, then
+        # Back, silently killed the transfer and dropped back to a fresh
+        # dashboard with a stray "Transfer Failed"): return_to_dashboard()
+        # unconditionally rebuilt/resumed polling regardless of whether a
+        # TransferCoordinator was still actually running in the background.
+        # Simplest correct fix is upstream of that: don't let Settings/
+        # History be entered at all while a transfer is active, so there's
+        # nothing for Back to tear down in the first place. The titlebar
+        # buttons are also disabled for the same window (see
+        # start_transfer_ui/on_transfer_finished) so this is a defensive
+        # backstop, not the only guard.
+        if self.active_coordinator is not None:
+            return
         # Drop the previous settings page instance rather than stacking a
         # fresh one on top every time the titlebar button is clicked --
         # otherwise repeated visits silently accumulate hidden QWidgets in
@@ -757,7 +958,8 @@ class MainWindow(QMainWindow):
 
         self.settings_page_widget = page
         idx = self.stacked_pages.addWidget(page)
-        self.stacked_pages.setCurrentIndex(idx)
+        self._fade_transition(idx)
+        self._tag_theme(page)
 
     def _settings_card(self, title_text, desc_text) -> QWidget:
         card = QWidget()
@@ -791,6 +993,9 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def show_history_page(self):
+        # Same mid-transfer guard as show_settings_page -- see its comment.
+        if self.active_coordinator is not None:
+            return
         # Same reasoning as show_settings_page: drop the previous instance
         # instead of stacking a new hidden widget on every "History" click.
         if self.history_page_widget is not None:
@@ -846,7 +1051,8 @@ class MainWindow(QMainWindow):
 
         self.history_page_widget = page
         idx = self.stacked_pages.addWidget(page)
-        self.stacked_pages.setCurrentIndex(idx)
+        self._fade_transition(idx)
+        self._tag_theme(page)
 
     def _history_row(self, entry: dict) -> QWidget:
         row = QWidget()
@@ -987,6 +1193,15 @@ class MainWindow(QMainWindow):
         
         footer.addStretch()
 
+        # Explicit PC -> Phone entry point (previously only reachable via
+        # implicit drag-and-drop, and only ever as a Copy). Placed next to
+        # Pull Custom Files so both transfer directions are equally
+        # discoverable from the same footer row.
+        push_custom_btn = QPushButton("Push Files to Phone", self)
+        push_custom_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        push_custom_btn.clicked.connect(self.trigger_custom_push)
+        footer.addWidget(push_custom_btn)
+
         pull_custom_btn = QPushButton("Pull Custom Files", self)
         pull_custom_btn.setObjectName("PrimaryButton")
         pull_custom_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1002,14 +1217,24 @@ class MainWindow(QMainWindow):
         add_shadow(self.drop_zone, blur=20, y_offset=4, alpha=40)
         
         self.stacked_pages.addWidget(self.dashboard_page_widget)
-        self.stacked_pages.setCurrentWidget(self.dashboard_page_widget)
+        self._fade_transition(self.dashboard_page_widget)
+        self._tag_theme(self.dashboard_page_widget)
 
     def _build_quick_action(self, icon_name, title_text, desc_text, on_click) -> QWidget:
         btn = QuickActionButton()
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.clicked.connect(on_click)
         outer = QVBoxLayout(btn)
-        outer.setContentsMargins(0, 0, 0, 0)
+        # #QuickActionButton's QSS rule declares `padding: 16px`, but that's
+        # only ever honored by Qt for a QPushButton's own built-in text/icon
+        # label rendering -- it is NOT applied to a manually-set child layout
+        # like this one. With margins at 0 (the old value), the badge/title/
+        # desc sat flush against the tile's rounded-corner edges instead of
+        # getting the intended breathing room, which is what read as
+        # "unpolished" on real-device screenshots. Setting the layout's own
+        # margins to match the QSS intent directly, since that's the only
+        # margin Qt will actually respect here.
+        outer.setContentsMargins(16, 16, 16, 16)
         outer.setSpacing(10)
         badge = make_icon_badge(icon_name, self.is_dark_mode, size=36, icon_size=18)
         outer.addWidget(badge, 0, Qt.AlignmentFlag.AlignLeft)
@@ -1042,6 +1267,24 @@ class MainWindow(QMainWindow):
             if hasattr(self, "settings_dest_label"):
                 self.settings_dest_label.setText(self.get_truncated_dest_path())
 
+    @staticmethod
+    def _format_transfer_route(direction, src_paths, dest_path) -> str:
+        """One-line 'what's actually moving where' summary for the top of
+        the progress page. Kept short/truncated since long absolute paths
+        (especially Android ones) blow past the card's width easily."""
+        if len(src_paths) == 1:
+            src_display = os.path.basename(src_paths[0].rstrip("/\\")) or src_paths[0]
+        else:
+            src_display = f"{len(src_paths)} selected items"
+
+        dest_display = dest_path
+        if len(dest_display) > 44:
+            dest_display = dest_display[:20] + "..." + dest_display[-20:]
+
+        if direction == "phone_to_pc":
+            return f"{src_display}  \u2022  Phone \u2192 PC\nTo: {dest_display}"
+        return f"{src_display}  \u2022  PC \u2192 Phone\nTo: {dest_display}"
+
     # Trigger Transfers
     def start_transfer_ui(self, direction, op_type, src_paths, dest_path, extensions=None):
         # Setup Progress Page
@@ -1061,6 +1304,18 @@ class MainWindow(QMainWindow):
         title.setObjectName("HeaderLabel")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
+
+        # FIX (real-device report: "progress page doesn't show any info such
+        # as where it's copying from to where and what folder"): previously
+        # nothing on this page ever showed the actual source/destination --
+        # just generic placeholder text ("Initializing engine...") that
+        # never changed until the per-file/batch labels below started
+        # updating. This route line stays fixed for the whole transfer.
+        route_label = QLabel(self._format_transfer_route(direction, src_paths, dest_path), card)
+        route_label.setObjectName("PathLabel")
+        route_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        route_label.setWordWrap(True)
+        layout.addWidget(route_label)
         
         self.transfer_file_label = QLabel("Initializing engine...", card)
         self.transfer_file_label.setObjectName("TransferFileLabel")
@@ -1106,10 +1361,17 @@ class MainWindow(QMainWindow):
         add_shadow(card, blur=28, y_offset=8, alpha=70)
         
         idx = self.stacked_pages.addWidget(page)
-        self.stacked_pages.setCurrentIndex(idx)
+        self._fade_transition(idx)
+        self._tag_theme(page)
         
         # Stop background connection checks during active transfer
         self.check_timer.stop()
+        # Visually disable History/Settings while a transfer is running --
+        # paired with the active_coordinator guards in show_settings_page/
+        # show_history_page/return_to_dashboard, so it's obvious up front
+        # these aren't available rather than silently doing nothing on click.
+        self.history_btn.setEnabled(False)
+        self.settings_btn.setEnabled(False)
         self.is_paused = False
         self._transfer_start_time = time.time()
         self._transfer_context = {
@@ -1226,6 +1488,8 @@ class MainWindow(QMainWindow):
                 device_name=self._transfer_context.get("device_name", ""),
             )
         self.active_coordinator = None
+        self.history_btn.setEnabled(True)
+        self.settings_btn.setEnabled(True)
         
         # Display Status Result View
         page = QWidget()
@@ -1264,9 +1528,17 @@ class MainWindow(QMainWindow):
         add_shadow(card, blur=28, y_offset=8, alpha=70)
         
         idx = self.stacked_pages.addWidget(page)
-        self.stacked_pages.setCurrentIndex(idx)
+        self._fade_transition(idx)
+        self._tag_theme(page)
 
     def return_to_dashboard(self):
+        # Defensive backstop: Settings/History can no longer be entered
+        # while a transfer is active (see show_settings_page), so this
+        # should never actually fire mid-transfer -- but if it somehow does,
+        # don't resume polling or rebuild the dashboard out from under a
+        # still-running TransferCoordinator (the original real-device bug).
+        if self.active_coordinator is not None:
+            return
         self.check_timer.start(1500)
         self.show_onboarding_or_dashboard()
 
@@ -1296,9 +1568,42 @@ class MainWindow(QMainWindow):
         self.start_transfer_ui("phone_to_pc", "copy", src_paths, dest, extensions=VIDEO_EXTENSIONS)
 
     def trigger_custom_pull(self):
-        src_paths = ["/sdcard/Download"]
+        # FIX (real-device report): this previously ignored its own button
+        # label entirely and silently pulled a hardcoded /sdcard/Download
+        # every time. Now genuinely lets the user browse the phone and pick
+        # specific files/folders via PhoneBrowserDialog, then choose Copy vs
+        # Move via CopyMoveDialog (Move was previously unreachable from any
+        # UI path despite being fully implemented in TransferCoordinator).
+        if self.active_coordinator:
+            return
+        selected = PhoneBrowserDialog.ask(self.adb_manager, self.is_dark_mode, self)
+        if not selected:
+            return
+        mode = CopyMoveDialog.ask(len(selected), self.is_dark_mode, self)
+        if not mode:
+            return
         dest = self.config["backup_destination"]
-        self.start_transfer_ui("phone_to_pc", "copy", src_paths, dest)
+        self.start_transfer_ui("phone_to_pc", mode, selected, dest)
+
+    def trigger_custom_push(self):
+        # FIX (real-device report: "where is the option to copy/move from PC
+        # to phone?"): previously the only PC-to-phone path was implicit
+        # drag-and-drop, always hardcoded to Copy. This is the explicit,
+        # discoverable entry point, with the same Copy/Move choice as Pull
+        # Custom Files. Destination stays /sdcard/Download to match what
+        # drag-and-drop already does -- a phone-side destination *folder*
+        # picker is a reasonable future addition but is a separate, bigger
+        # piece of work than this bug-fix pass.
+        if self.active_coordinator:
+            return
+        files, _ = QFileDialog.getOpenFileNames(self, "Select Files to Push to Phone")
+        if not files:
+            return
+        mode = CopyMoveDialog.ask(len(files), self.is_dark_mode, self)
+        if not mode:
+            return
+        dest = "/sdcard/Download"
+        self.start_transfer_ui("pc_to_phone", mode, files, dest)
 
     def handle_drag_dropped_files(self, paths):
         dest = "/sdcard/Download"

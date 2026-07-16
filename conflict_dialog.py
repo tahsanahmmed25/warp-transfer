@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButt
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
+from theme_utils import tag_theme_recursive
+
 
 class ConflictDialog(QDialog):
     """Modal dialog offering Skip / Overwrite / Rename / Cancel for a batch
@@ -28,6 +30,13 @@ class ConflictDialog(QDialog):
 
         container = self._build_container(conflict_count)
         outer.addWidget(container)
+
+        # FIX (queue item #1): `is_dark` was already being passed in but
+        # never actually used -- this dialog always rendered with whichever
+        # theme happened to be the QSS default, regardless of the app's
+        # real current theme. Tag the whole dialog tree now that it's fully
+        # built, same mechanism MainWindow uses on itself.
+        tag_theme_recursive(self, is_dark)
 
     def _build_container(self, conflict_count):
         from PyQt6.QtWidgets import QWidget
