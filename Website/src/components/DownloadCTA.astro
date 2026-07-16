@@ -1,0 +1,55 @@
+---
+import { Download, Terminal } from 'lucide-react';
+---
+
+<section id="download" class="py-20 lg:py-28 relative overflow-hidden">
+  <!-- Glowing Background Mesh -->
+  <div class="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
+    <div class="h-64 w-64 rounded-full bg-gold-glow blur-[100px] opacity-40"></div>
+  </div>
+
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 relative z-10">
+    <div class="rounded-3xl border border-gold/30 bg-bg-secondary/40 p-8 sm:p-12 lg:p-16 flex flex-col items-center justify-center text-center shadow-lg shadow-gold-glow reveal">
+      
+      <h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-text-main mb-4 max-w-2xl leading-tight">
+        Ready for Warp-Speed Syncing?
+      </h2>
+      <p class="font-body text-sm sm:text-base text-text-muted mb-8 max-w-xl leading-relaxed">
+        Warp Transfer v1.0.0 is now stable and ready for Windows 10 & 11. Bypasses MTP, runs fully local, and installs in one click.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+        <!-- 1. Executable download -->
+        <div class="flex flex-col p-6 rounded-2xl border border-border-custom bg-bg-primary text-left">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-4">
+            <Download className="h-4 w-4" />
+          </div>
+          <h3 class="font-display text-sm font-bold text-text-main mb-1">Standalone Executable</h3>
+          <p class="font-body text-xs text-text-muted mb-4 leading-relaxed">Pre-packaged executable. Auto-downloads platform-tools on launch.</p>
+          <a href="https://github.com/tahsanahmmed25/warp-transfer/releases/latest" class="mt-auto flex h-10 w-full items-center justify-center rounded-xl bg-gold hover:bg-gold-hover text-[#060608] font-display text-xs font-semibold transition-colors">
+            Download installer (.exe)
+          </a>
+        </div>
+
+        <!-- 2. Terminal download / source -->
+        <div class="flex flex-col p-6 rounded-2xl border border-border-custom bg-bg-primary text-left">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-4">
+            <Terminal className="h-4 w-4" />
+          </div>
+          <h3 class="font-display text-sm font-bold text-text-main mb-1">Run from Source</h3>
+          <p class="font-body text-xs text-text-muted mb-3 leading-relaxed">Run the PyQt6 interface from your terminal using Python 3.10+.</p>
+          
+          <!-- Code Block -->
+          <div class="w-full rounded-xl bg-[#060608] border border-border-custom p-3 font-body text-[10px] text-gold select-all overflow-x-auto whitespace-nowrap mb-4">
+            <code>pip install -r requirements.txt && python main.py</code>
+          </div>
+          
+          <a href="https://github.com/tahsanahmmed25/warp-transfer" target="_blank" rel="noopener noreferrer" class="mt-auto flex h-10 w-full items-center justify-center rounded-xl border border-border-custom hover:border-gold hover:text-gold text-text-main font-display text-xs font-semibold transition-colors">
+            View Source Code
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>

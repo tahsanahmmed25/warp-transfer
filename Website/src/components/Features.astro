@@ -1,0 +1,88 @@
+---
+import { Zap, Cpu, MousePointer, ShieldCheck, Filter, Layers } from 'lucide-react';
+---
+
+<section id="features" class="py-20 lg:py-28 border-y border-border-custom bg-bg-secondary/20">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <!-- Section Header -->
+    <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-20 reveal">
+      <h2 class="font-display text-3xl sm:text-4xl font-bold tracking-tight text-text-main mb-4">
+        Built for Speed. Engineered for Control.
+      </h2>
+      <p class="font-body text-sm sm:text-base text-text-muted">
+        Warp Transfer completely re-thinks Android-to-PC file copies, packaging developer-grade utilities inside a highly-refined fluent interface.
+      </p>
+    </div>
+
+    <!-- Bento Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      
+      <!-- Feature 1: Parallel workers -->
+      <div class="flex flex-col rounded-2xl p-6 glass-panel glass-panel-hover reveal">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-6">
+          <Cpu className="h-5 w-5" />
+        </div>
+        <h3 class="font-display text-lg font-bold text-text-main mb-2">Parallel Copy Pipelines</h3>
+        <p class="font-body text-xs sm:text-sm text-text-muted leading-relaxed">
+          Open multiple concurrent worker channels to copy folders containing thousands of items (like camera DCIM). By copying in parallel, MTP sequential bottlenecks are completely eliminated.
+        </p>
+      </div>
+
+      <!-- Feature 2: Auto setup -->
+      <div class="flex flex-col rounded-2xl p-6 glass-panel glass-panel-hover reveal">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-6">
+          <Zap className="h-5 w-5" />
+        </div>
+        <h3 class="font-display text-lg font-bold text-text-main mb-2">Platform-Tools Auto Config</h3>
+        <p class="font-body text-xs sm:text-sm text-text-muted leading-relaxed">
+          Never touch the command line. On the first launch, Warp Transfer automatically detects, downloads, and configures the latest Android Debug Bridge (ADB) binaries silently in the background.
+        </p>
+      </div>
+
+      <!-- Feature 3: Drag & Drop -->
+      <div class="flex flex-col rounded-2xl p-6 glass-panel glass-panel-hover reveal">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-6">
+          <MousePointer className="h-5 w-5" />
+        </div>
+        <h3 class="font-display text-lg font-bold text-text-main mb-2">Bi-directional Drag & Drop</h3>
+        <p class="font-body text-xs sm:text-sm text-text-muted leading-relaxed">
+          Need to push files to your phone? Simply drag any file or folder from Windows Explorer directly into the app's drag zone to push them straight to `/sdcard/Download`.
+        </p>
+      </div>
+
+      <!-- Feature 4: Safety / Move integrity -->
+      <div class="flex flex-col rounded-2xl p-6 glass-panel glass-panel-hover reveal">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-6">
+          <ShieldCheck className="h-5 w-5" />
+        </div>
+        <h3 class="font-display text-lg font-bold text-text-main mb-2">Integrity Safeguards</h3>
+        <p class="font-body text-xs sm:text-sm text-text-muted leading-relaxed">
+          During "Move" operations, the app verifies exact file presence and byte matches on the destination side before deleting the source, protecting against data loss.
+        </p>
+      </div>
+
+      <!-- Feature 5: Category Filters -->
+      <div class="flex flex-col rounded-2xl p-6 glass-panel glass-panel-hover reveal">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-6">
+          <Filter className="h-5 w-5" />
+        </div>
+        <h3 class="font-display text-lg font-bold text-text-main mb-2">Smart Presets & Caps</h3>
+        <p class="font-body text-xs sm:text-sm text-text-muted leading-relaxed">
+          Filter files by category (Photos Only / Videos Only) with a single click. Cap transfer speeds (e.g. 2 MB/s, 10 MB/s) to keep CPU overhead low and phone thermal states cool.
+        </p>
+      </div>
+
+      <!-- Feature 6: Multi-device picker -->
+      <div class="flex flex-col rounded-2xl p-6 glass-panel glass-panel-hover reveal">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-glow border border-gold/20 text-gold mb-6">
+          <Layers className="h-5 w-5" />
+        </div>
+        <h3 class="font-display text-lg font-bold text-text-main mb-2">Multi-Device Picker</h3>
+        <p class="font-body text-xs sm:text-sm text-text-muted leading-relaxed">
+          Plug in multiple Android devices, emulators, or wireless connections, and toggle between them dynamically via a clean fluent picker menu on the main interface.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>

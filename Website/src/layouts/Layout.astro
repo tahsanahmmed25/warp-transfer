@@ -1,0 +1,101 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { 
+  title = "Warp Transfer ⚡ Bypassing MTP for warp-speed Android-PC transfers", 
+  description = "A premium, high-speed, parallel bi-directional Android-to-PC file transfer utility bypassing MTP using wireless or USB ADB connections."
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- SEO Meta Tags -->
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content="Warp Transfer" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    
+    <!-- Google Fonts: Geist & Geist Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&display=swap" rel="stylesheet" />
+    
+    <!-- Astro View Transitions -->
+    <ClientRouter />
+
+    <!-- Theme Initialization script to prevent flash of light theme -->
+    <script is:inline>
+      const theme = (() => {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+          return localStorage.getItem('theme');
+        }
+        return 'dark'; // Default is Dark
+      })();
+      if (theme === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else {
+        document.documentElement.classList.add('dark');
+      }
+      window.localStorage.setItem('theme', theme);
+    </script>
+  </head>
+  <body class="bg-bg-primary text-text-main font-body antialiased transition-colors duration-300">
+    <div class="relative min-h-screen overflow-x-hidden">
+      <!-- Background Mesh Glows -->
+      <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div class="absolute -top-[40%] -left-[20%] h-[80%] w-[60%] rounded-full bg-gold-glow blur-[120px] opacity-70 dark:opacity-40"></div>
+        <div class="absolute -bottom-[30%] -right-[10%] h-[70%] w-[50%] rounded-full bg-gold-glow blur-[150px] opacity-50 dark:opacity-30"></div>
+      </div>
+
+      <!-- Main Page Content -->
+      <div class="relative z-10">
+        <slot />
+      </div>
+    </div>
+
+    <!-- Scroll Reveal script -->
+    <script>
+      const setupRevealObserver = () => {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+              }
+            });
+          },
+          { threshold: 0.1 }
+        );
+
+        document.querySelectorAll('.reveal').forEach((el) => {
+          observer.observe(el);
+        });
+      };
+
+      // Set up on initial load
+      setupRevealObserver();
+      // Re-run on Astro page transition
+      document.addEventListener('astro:after-swap', setupRevealObserver);
+    </script>
+  </body>
+</html>
