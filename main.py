@@ -21,6 +21,11 @@ from conflict_dialog import ConflictDialog
 from device_picker import DevicePickerDialog
 from wireless_connect_dialog import WirelessConnectDialog
 from phone_browser_dialog import PhoneBrowserDialog
+
+def get_resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 from copy_move_dialog import CopyMoveDialog
 from ui_transitions import fade_to_page
 from theme_utils import tag_theme_recursive
@@ -274,6 +279,9 @@ class MainWindow(QMainWindow):
         self.settings_page_widget = None
         
         self.setWindowTitle("Warp Transfer")
+        icon_path = get_resource_path("icon.ico")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
         # 760x600 is the visible card size; +48 in each dimension (24px on
         # every side) is transparent padding for main_container's ambient
         # drop shadow (blur=40 in apply_theme()) to bleed into. Previously

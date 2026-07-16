@@ -1,0 +1,51 @@
+name: Build and Release Executable
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build Executable with PyInstaller
+      run: |
+        pyinstaller --onefile --noconsole --icon=icon.ico --add-data "icon.ico;." main.py
+
+    - name: Rename Executable
+      shell: pwsh
+      run: |
+        Rename-Item -Path "dist/main.exe" -NewName "Warp-Transfer.exe"
+
+    - name: Upload Build Artifacts (Optional)
+      uses: actions/upload-artifact@v4
+      with:
+        name: Warp-Transfer-Windows-Binary
+        path: dist/Warp-Transfer.exe
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/Warp-Transfer.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
