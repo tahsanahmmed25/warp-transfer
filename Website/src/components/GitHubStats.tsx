@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { GitBranch, Star, Users, FolderGit2 } from 'lucide-react';
+import { GitFork, Star, AlertCircle, GitBranch } from 'lucide-react';
 
-type Stats = { repos: number; followers: number; stars: number };
+type Stats = { stars: number; forks: number; issues: number };
 
-const GITHUB_USERNAME = "tahsanahmmed25";
+const GITHUB_REPO = "tahsanahmmed25/warp-transfer";
 
 export default function GitHubStats() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -15,22 +15,16 @@ export default function GitHubStats() {
 
     async function load() {
       try {
-        const userRes = await fetch(`https://api.github.com/users/${GITHUB_USERNAME}`);
-        if (!userRes.ok) throw new Error("user fetch failed");
-        const user = await userRes.json();
-
-        const reposRes = await fetch(
-          `https://api.github.com/users/${GITHUB_USERNAME}/repos?per_page=100`
-        );
-        if (!reposRes.ok) throw new Error("repos fetch failed");
-        const repos = await reposRes.json();
-        
-        const stars = Array.isArray(repos)
-          ? repos.reduce((sum: number, r: { stargazers_count?: number }) => sum + (r.stargazers_count ?? 0), 0)
-          : 0;
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`);
+        if (!res.ok) throw new Error("repository fetch failed");
+        const repo = await res.json();
 
         if (!cancelled) {
-          setStats({ repos: user.public_repos ?? 0, followers: user.followers ?? 0, stars });
+          setStats({ 
+            stars: repo.stargazers_count ?? 0, 
+            forks: repo.forks_count ?? 0, 
+            issues: repo.open_issues_count ?? 0 
+          });
           setStatus("ready");
         }
       } catch (err) {
@@ -46,9 +40,9 @@ export default function GitHubStats() {
 
   const cards = stats
     ? [
-        { icon: FolderGit2, value: stats.repos, label: "Public Repos" },
-        { icon: Star, value: stats.stars, label: "Stars Received" },
-        { icon: Users, value: stats.followers, label: "Followers" },
+        { icon: Star, value: stats.stars, label: "GitHub Stars" },
+        { icon: GitFork, value: stats.forks, label: "Forks" },
+        { icon: AlertCircle, value: stats.issues, label: "Open Issues" },
       ]
     : [];
 
@@ -59,13 +53,13 @@ export default function GitHubStats() {
         {/* Section Header */}
         <div class="mx-auto max-w-2xl text-center mb-12">
           <div class="inline-flex items-center space-x-1.5 rounded-full border border-gold bg-gold-glow px-3 py-1 text-xs font-semibold text-gold tracking-wide mb-4">
-            <span>Live from GitHub</span>
+            <span>Repository Metrics</span>
           </div>
           <h2 class="font-display text-3xl sm:text-4xl font-bold tracking-tight text-text-main">
-            Pulled Straight from the Source
+            Live Repository Statistics
           </h2>
           <p class="font-body text-xs sm:text-sm text-text-muted mt-3 max-w-xl mx-auto">
-            These numbers are not typed in by hand. They update automatically on every page load using direct API queries to GitHub.
+            These numbers are not hardcoded. They represent active community engagement on this repository, fetched dynamically from GitHub's API on page load.
           </p>
         </div>
 
@@ -105,19 +99,19 @@ export default function GitHubStats() {
 
           {status === 'error' && (
             <div class="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-center text-xs text-text-muted font-body">
-              Unable to reach GitHub API. Visit the profile page directly instead.
+              Unable to reach GitHub API. Visit the repository page directly instead.
             </div>
           )}
 
           {/* Action Link Button */}
           <a
-            href="https://github.com/tahsanahmmed25"
+            href="https://github.com/tahsanahmmed25/warp-transfer"
             target="_blank"
             rel="noopener noreferrer"
             class="mt-4 inline-flex items-center space-x-2 rounded-full border border-border-custom hover:border-gold hover:text-gold text-text-main font-display text-xs font-semibold px-5 py-2.5 transition-all duration-300 hover:scale-[1.02] shadow-sm bg-bg-secondary/40"
           >
             <GitBranch className="h-4 w-4" />
-            <span>Visit @tahsanahmmed25</span>
+            <span>View Repository</span>
           </a>
         </div>
 
