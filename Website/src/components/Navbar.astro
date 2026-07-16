@@ -1,7 +1,7 @@
 ---
 ---
 
-<nav class="sticky top-0 z-50 w-full border-b border-border-custom glass-panel transition-all duration-300">
+<nav class="fixed top-0 left-0 w-full z-50 border-b border-border-custom glass-panel transition-all duration-300">
   <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
     <div class="flex h-16 items-center justify-between">
       <!-- Logo and Name -->
@@ -67,7 +67,7 @@
   </div>
 
   <!-- Mobile Dropdown Menu -->
-  <div id="mobile-menu" class="hidden border-t border-border-custom bg-bg-secondary lg:hidden">
+  <div id="mobile-menu" class="max-h-0 opacity-0 overflow-hidden border-t border-transparent bg-bg-secondary lg:hidden transition-all duration-300 ease-in-out">
     <div class="space-y-1 px-4 py-4">
       <a href="#features" class="mobile-nav-link block rounded-xl px-3 py-2 text-base font-medium text-text-muted hover:bg-gold-glow hover:text-gold">Features</a>
       <a href="#performance" class="mobile-nav-link block rounded-xl px-3 py-2 text-base font-medium text-text-muted hover:bg-gold-glow hover:text-gold">Performance</a>
@@ -122,14 +122,22 @@
     menuToggle?.addEventListener('click', () => {
       const isExpanded = menuToggle.getAttribute('aria-expanded') === 'true';
       menuToggle.setAttribute('aria-expanded', String(!isExpanded));
-      mobileMenu?.classList.toggle('hidden');
+      
+      if (isExpanded) {
+        mobileMenu?.classList.add('max-h-0', 'opacity-0', 'border-transparent');
+        mobileMenu?.classList.remove('max-h-[300px]', 'opacity-100', 'border-border-custom');
+      } else {
+        mobileMenu?.classList.remove('max-h-0', 'opacity-0', 'border-transparent');
+        mobileMenu?.classList.add('max-h-[300px]', 'opacity-100', 'border-border-custom');
+      }
     });
 
     // Close menu when link is clicked
     mobileNavLinks.forEach(link => {
       link.addEventListener('click', () => {
         menuToggle?.setAttribute('aria-expanded', 'false');
-        mobileMenu?.classList.add('hidden');
+        mobileMenu?.classList.add('max-h-0', 'opacity-0', 'border-transparent');
+        mobileMenu?.classList.remove('max-h-[300px]', 'opacity-100', 'border-border-custom');
       });
     });
   };
