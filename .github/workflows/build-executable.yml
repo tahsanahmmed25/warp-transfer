@@ -32,15 +32,19 @@ jobs:
       run: |
         pyinstaller --onefile --noconsole --icon=icon.ico --add-data "icon.ico;." --version-file=file_version_info.txt --name=Warp-Transfer main.py
 
+    - name: Compile Inno Setup Installer
+      run: |
+        iscc setup.iss
+
     - name: Upload Build Artifacts (Optional)
       uses: actions/upload-artifact@v4
       with:
-        name: Warp-Transfer-Windows-Binary
-        path: dist/Warp-Transfer.exe
+        name: Warp-Transfer-Installer
+        path: Warp-Transfer-Setup.exe
 
     - name: Create Release and Upload Asset
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/Warp-Transfer.exe
+        files: Warp-Transfer-Setup.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
