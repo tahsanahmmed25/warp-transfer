@@ -627,12 +627,12 @@ QProgressBar[theme="light"]::chunk {
 }
 
 /* Checkable settings toggle buttons (conflict mode / throttle presets) */
-QPushButton[theme="dark"]:checkable:checked {
+QPushButton[theme="dark"]:checked {
     background-color: rgba(212, 175, 55, 0.16);
     border: 1px solid #D4AF37;
     color: #F0D68A;
 }
-QPushButton[theme="light"]:checkable:checked {
+QPushButton[theme="light"]:checked {
     background-color: rgba(184, 134, 11, 0.12);
     border: 1px solid #B8860B;
     color: #8B6508;
