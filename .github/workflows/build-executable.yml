@@ -30,22 +30,22 @@ jobs:
 
     - name: Build Executable with PyInstaller
       run: |
-        pyinstaller --onefile --noconsole --icon=icon.ico --add-data "icon.ico;." main.py
+        pyinstaller --onedir --noconsole --icon=icon.ico --add-data "icon.ico;." --name=Warp-Transfer main.py
 
-    - name: Rename Executable
+    - name: Compress Build output to Zip
       shell: pwsh
       run: |
-        Rename-Item -Path "dist/main.exe" -NewName "Warp-Transfer.exe"
+        Compress-Archive -Path dist/Warp-Transfer -DestinationPath dist/Warp-Transfer-Windows.zip
 
     - name: Upload Build Artifacts (Optional)
       uses: actions/upload-artifact@v4
       with:
         name: Warp-Transfer-Windows-Binary
-        path: dist/Warp-Transfer.exe
+        path: dist/Warp-Transfer-Windows.zip
 
     - name: Create Release and Upload Asset
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/Warp-Transfer.exe
+        files: dist/Warp-Transfer-Windows.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
