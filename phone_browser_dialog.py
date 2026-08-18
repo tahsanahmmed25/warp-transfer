@@ -1,59 +1,59 @@
 # Phone-side file/folder browser dialog for Warp Transfer.
 #
 # Lets the user navigate the connected device's storage and check specific
-# files/folders to pull to the PC. Previously "Pull Custom Files" silently
-# always grabbed a hardcoded /sdcard/Download regardless of what the
-# button's own label implied -- this is the actual picker that label was
-# always supposed to open, per Tahsan's real-device testing feedback.
-#
-# Redesigned (per direct request, alongside the "from and to" destination-
-# picking work in phone_folder_picker_dialog.py): larger dialog, distinct
-# folder-vs-file row styling (rounded icon badges instead of raw emoji-in-
-# QLabel text, folders visually distinct from files with a chevron hint),
-# and a breadcrumb-style path row instead of one long unbroken path string.
+# files/folders to pull to the PC.
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QWidget, QScrollArea, QGraphicsDropShadowEffect, QCheckBox,
                              QSizePolicy)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QColor, QPixmap, QPainter
+from PyQt6.QtSvg import QSvgRenderer
 
 from theme_utils import tag_theme_recursive
 
 DEFAULT_ROOT = "/sdcard"
 
+_SVG_FOLDER = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>'
+_SVG_FILE = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>'
 
-def _row_icon_badge(is_dir: bool) -> QWidget:
-    """Small rounded icon badge distinguishing folders from files, replacing
-    the previous raw emoji-glued-into-label-text approach -- consistent
-    with the IconBadge look used everywhere else in the app instead of
-    looking like a one-off in this dialog specifically."""
+
+def _row_icon_badge(is_dir: bool, is_dark: bool) -> QWidget:
+    """Rounded vector icon badge distinguishing folders from files."""
     badge = QWidget()
     badge.setObjectName("IconBadge")
-    badge.setFixedSize(30, 30)
+    badge.setFixedSize(32, 32)
     layout = QVBoxLayout(badge)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    label = QLabel("\U0001F4C1" if is_dir else "\U0001F4C4")
+    
+    color = "#D4AF37" if is_dark else "#B8860B"
+    svg_str = _SVG_FOLDER.format(color=color) if is_dir else _SVG_FILE.format(color=color)
+    
+    pixmap = QPixmap(QSize(16, 16))
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    QSvgRenderer(svg_str.encode("utf-8")).render(painter)
+    painter.end()
+    
+    label = QLabel()
+    label.setPixmap(pixmap)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    label.setStyleSheet("font-size: 14px; background: transparent; border: none;")
     layout.addWidget(label)
     return badge
 
 
 class PhoneBrowserDialog(QDialog):
     """Modal phone-storage browser: navigate folders, check items across
-    any number of folders visited, confirm a selection of absolute paths.
-    Selections persist as you navigate in and out of folders (tracked on
-    the dialog instance, not per-listing), so picking a file in one folder
-    then browsing into a different one doesn't lose the earlier pick."""
+    any number of folders visited, confirm a selection of absolute paths."""
 
     def __init__(self, adb_manager, is_dark: bool, parent=None):
         super().__init__(parent)
         self.adb_manager = adb_manager
+        self.is_dark = is_dark
         self.setWindowTitle("Choose Files to Pull")
         self.setModal(True)
-        self.setFixedSize(540, 620)
+        self.setFixedSize(560, 640)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -80,16 +80,12 @@ class PhoneBrowserDialog(QDialog):
         header_row.addWidget(self.selection_summary)
         card_layout.addLayout(header_row)
 
-        # Breadcrumb-style path row: each ancestor segment is its own
-        # clickable link, so jumping back up several levels at once doesn't
-        # require repeated "Up" clicks -- previously the whole path was one
-        # long, non-interactive wrapped string.
-        self.breadcrumb_row = QHBoxLayout()
-        self.breadcrumb_row.setSpacing(2)
-        breadcrumb_wrap = QWidget(self.card)
-        breadcrumb_wrap.setLayout(self.breadcrumb_row)
-        breadcrumb_wrap.setObjectName("InnerCard")
-        card_layout.addWidget(breadcrumb_wrap)
+        self.breadcrumb_wrap = QWidget(self.card)
+        self.breadcrumb_wrap.setObjectName("BreadcrumbWrap")
+        self.breadcrumb_row = QHBoxLayout(self.breadcrumb_wrap)
+        self.breadcrumb_row.setContentsMargins(8, 4, 8, 4)
+        self.breadcrumb_row.setSpacing(4)
+        card_layout.addWidget(self.breadcrumb_wrap)
 
         self.status_label = QLabel("", self.card)
         self.status_label.setObjectName("StatusBannerWarning")
@@ -103,7 +99,7 @@ class PhoneBrowserDialog(QDialog):
         self.list_widget = QWidget()
         self.list_layout = QVBoxLayout(self.list_widget)
         self.list_layout.setSpacing(6)
-        self.list_layout.setContentsMargins(0, 6, 0, 6)
+        self.list_layout.setContentsMargins(0, 4, 0, 4)
         self.scroll.setWidget(self.list_widget)
         card_layout.addWidget(self.scroll, 1)
 
@@ -127,17 +123,11 @@ class PhoneBrowserDialog(QDialog):
         shadow.setColor(QColor(0, 0, 0, 120))
         self.card.setGraphicsEffect(shadow)
 
-        tag_theme_recursive(self, is_dark)
+        tag_theme_recursive(self, self.is_dark)
         self._load_dir(self.current_path)
 
     def _list_dir(self, path: str):
-        """Returns (dirs, files) sorted name lists for `path`, or
-        (None, None) on an adb error. Deliberately uses `ls -1p` (one entry
-        per line, trailing '/' on directories) rather than `ls -la` --
-        Android's toybox `ls -la` column layout and date format aren't
-        reliably parseable across OEM skins/OS versions, and a picker only
-        actually needs name + dir-or-file, which `-1p` gives directly in a
-        far simpler, more robust format."""
+        """Returns (dirs, files) sorted name lists for `path`."""
         code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"ls -1p '{path}'"])
         if code != 0:
             return None, None
@@ -162,16 +152,17 @@ class PhoneBrowserDialog(QDialog):
         accumulated = ""
         for i, seg in enumerate(segments):
             accumulated += f"/{seg}"
-            crumb = QPushButton(seg, self.card)
-            crumb.setObjectName("GhostTextLink")
+            crumb = QPushButton(seg, self.breadcrumb_wrap)
+            crumb.setObjectName("BreadcrumbBtn")
             crumb.setCursor(Qt.CursorShape.PointingHandCursor)
             crumb.clicked.connect(lambda checked=False, p=accumulated: self._load_dir(p))
             self.breadcrumb_row.addWidget(crumb)
             if i < len(segments) - 1:
-                sep = QLabel("/", self.card)
-                sep.setObjectName("SubHeaderLabel")
+                sep = QLabel("/", self.breadcrumb_wrap)
+                sep.setObjectName("BreadcrumbSep")
                 self.breadcrumb_row.addWidget(sep)
         self.breadcrumb_row.addStretch()
+        tag_theme_recursive(self.breadcrumb_wrap, self.is_dark)
 
     def _load_dir(self, path: str):
         self.current_path = path
@@ -195,20 +186,25 @@ class PhoneBrowserDialog(QDialog):
             empty = QLabel("This folder is empty.", self.list_widget)
             empty.setObjectName("SubHeaderLabel")
             self.list_layout.addWidget(empty)
+            tag_theme_recursive(empty, self.is_dark)
             return
 
         for name in dirs:
             full_path = f"{path.rstrip('/')}/{name}"
-            self.list_layout.addWidget(self._build_row(name, full_path, is_dir=True))
+            row = self._build_row(name, full_path, is_dir=True)
+            self.list_layout.addWidget(row)
+            tag_theme_recursive(row, self.is_dark)
         for name in files:
             full_path = f"{path.rstrip('/')}/{name}"
-            self.list_layout.addWidget(self._build_row(name, full_path, is_dir=False))
+            row = self._build_row(name, full_path, is_dir=False)
+            self.list_layout.addWidget(row)
+            tag_theme_recursive(row, self.is_dark)
 
     def _build_row(self, name: str, full_path: str, is_dir: bool) -> QWidget:
         row = QWidget()
         row.setObjectName("InnerCard")
         row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(10, 6, 10, 6)
+        row_layout.setContentsMargins(10, 6, 12, 6)
         row_layout.setSpacing(10)
 
         checkbox = QCheckBox(row)
@@ -216,22 +212,22 @@ class PhoneBrowserDialog(QDialog):
         checkbox.stateChanged.connect(lambda state, p=full_path: self._toggle_selection(p, state))
         row_layout.addWidget(checkbox)
 
-        row_layout.addWidget(_row_icon_badge(is_dir))
+        row_layout.addWidget(_row_icon_badge(is_dir, self.is_dark))
 
         if is_dir:
             label = QPushButton(name, row)
-            label.setObjectName("LinkButton")
+            label.setObjectName("BrowserDirBtn")
             label.setCursor(Qt.CursorShape.PointingHandCursor)
             label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             label.clicked.connect(lambda: self._load_dir(full_path))
         else:
             label = QLabel(name, row)
-            label.setObjectName("TransferDetailLabel")
+            label.setObjectName("BrowserFileLabel")
         row_layout.addWidget(label, 1)
 
         if is_dir:
             chevron = QLabel("\u203a", row)
-            chevron.setObjectName("SubHeaderLabel")
+            chevron.setObjectName("BrowserChevron")
             row_layout.addWidget(chevron)
 
         return row

@@ -14,11 +14,13 @@
 
 APP_STYLE = """
 /* Global Styles */
-QMainWindow[theme="dark"] {
+QMainWindow[theme="dark"], QDialog[theme="dark"] {
     background-color: #0C0C0E;
+    color: #F2F2F7;
 }
-QMainWindow[theme="light"] {
+QMainWindow[theme="light"], QDialog[theme="light"] {
     background-color: #F2F2F7;
+    color: #1C1C1E;
 }
 
 QWidget {
@@ -30,6 +32,46 @@ QWidget[theme="dark"] {
 }
 QWidget[theme="light"] {
     color: #1C1C1E;
+}
+
+QLabel[theme="dark"] {
+    color: #F2F2F7;
+}
+QLabel[theme="light"] {
+    color: #1C1C1E;
+}
+
+QCheckBox {
+    spacing: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+QCheckBox[theme="dark"] {
+    color: #F2F2F7;
+}
+QCheckBox[theme="light"] {
+    color: #1C1C1E;
+}
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+}
+QCheckBox::indicator[theme="dark"] {
+    background-color: #1B1B22;
+    border: 1px solid #333342;
+}
+QCheckBox::indicator[theme="dark"]:checked {
+    background-color: #D4AF37;
+    border: 1px solid #E5C158;
+}
+QCheckBox::indicator[theme="light"] {
+    background-color: #FFFFFF;
+    border: 1px solid #D1D1D6;
+}
+QCheckBox::indicator[theme="light"]:checked {
+    background-color: #B8860B;
+    border: 1px solid #96690A;
 }
 
 QToolTip[theme="dark"] {
@@ -624,6 +666,97 @@ QProgressBar[theme="light"]::chunk {
 #GhostTextLink[theme="light"]:hover {
     color: #714F07;
     text-decoration: underline;
+}
+
+/* Phone Browser & Folder Picker Row Elements */
+#BrowserDirBtn {
+    background-color: transparent;
+    border: none;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 6px;
+}
+#BrowserDirBtn[theme="dark"] {
+    color: #F4F4F5;
+}
+#BrowserDirBtn[theme="dark"]:hover {
+    color: #D4AF37;
+}
+#BrowserDirBtn[theme="light"] {
+    color: #18181B;
+}
+#BrowserDirBtn[theme="light"]:hover {
+    color: #B8860B;
+}
+
+#BrowserFileLabel {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 6px;
+}
+#BrowserFileLabel[theme="dark"] {
+    color: #E4E4E7;
+}
+#BrowserFileLabel[theme="light"] {
+    color: #27272A;
+}
+
+#BrowserChevron {
+    font-size: 16px;
+    font-weight: bold;
+}
+#BrowserChevron[theme="dark"] {
+    color: #71717A;
+}
+#BrowserChevron[theme="light"] {
+    color: #A1A1AA;
+}
+
+#BreadcrumbWrap {
+    border-radius: 8px;
+    padding: 4px 8px;
+}
+#BreadcrumbWrap[theme="dark"] {
+    background-color: #121217;
+    border: 1px solid #23232C;
+}
+#BreadcrumbWrap[theme="light"] {
+    background-color: #F2F2F7;
+    border: 1px solid #E5E5EA;
+}
+
+#BreadcrumbBtn {
+    background-color: transparent;
+    border: none;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 2px 4px;
+}
+#BreadcrumbBtn[theme="dark"] {
+    color: #E8C766;
+}
+#BreadcrumbBtn[theme="dark"]:hover {
+    color: #F5DFA0;
+    text-decoration: underline;
+}
+#BreadcrumbBtn[theme="light"] {
+    color: #96690A;
+}
+#BreadcrumbBtn[theme="light"]:hover {
+    color: #714F07;
+    text-decoration: underline;
+}
+
+#BreadcrumbSep {
+    font-weight: 700;
+    font-size: 12px;
+}
+#BreadcrumbSep[theme="dark"] {
+    color: #71717A;
+}
+#BreadcrumbSep[theme="light"] {
+    color: #A1A1AA;
 }
 
 /* Checkable settings toggle buttons (conflict mode / throttle presets) */

@@ -799,8 +799,7 @@ class MainWindow(QMainWindow):
             self.show_onboarding_or_dashboard()
 
     def open_wireless_dialog(self):
-        dlg = WirelessConnectDialog(self.adb_manager, self)
-        self._tag_theme(dlg)
+        dlg = WirelessConnectDialog(self.adb_manager, self.is_dark_mode, self)
         dlg.exec()
         # Re-check immediately in case a connect/pair succeeded, rather than
         # waiting up to 1.5s for the next poll tick.

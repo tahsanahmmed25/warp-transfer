@@ -1,30 +1,21 @@
 # Wireless (Wi-Fi) ADB connection dialog for Warp Transfer.
-#
-# Two supported flows, matching how Android's wireless debugging actually
-# works, exposed as two tabs:
-#   1. "Pair New Device"   -- Android 11+. User opens Settings > Developer
-#      options > Wireless debugging > Pair device with pairing code, which
-#      shows an IP:port + 6-digit code. That's a one-time handshake; adb
-#      pair completes it, then a normal adb connect to the *regular*
-#      Wireless debugging IP:port (also shown on that same screen) attaches
-#      the device going forward.
-#   2. "Reconnect" -- for a device already paired this session (or on
-#      Android <11 where enable_tcpip_mode() was used over USB first), just
-#      adb connect to a known ip:port.
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QLineEdit, QWidget, QTabWidget, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
+from theme_utils import tag_theme_recursive
+
 
 class WirelessConnectDialog(QDialog):
-    def __init__(self, adb_manager, parent=None):
+    def __init__(self, adb_manager, is_dark: bool = True, parent=None):
         super().__init__(parent)
         self.adb_manager = adb_manager
+        self.is_dark = is_dark
         self.setWindowTitle("Connect Wirelessly")
         self.setModal(True)
-        self.setFixedSize(440, 380)
+        self.setFixedSize(480, 420)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -39,7 +30,7 @@ class WirelessConnectDialog(QDialog):
 
         title = QLabel("Connect Over Wi-Fi")
         title.setObjectName("HeaderLabel")
-        title.setStyleSheet("font-size: 17px;")
+        title.setStyleSheet("font-size: 18px;")
         layout.addWidget(title)
 
         tabs = QTabWidget()
@@ -65,12 +56,13 @@ class WirelessConnectDialog(QDialog):
         card.setGraphicsEffect(shadow)
 
         outer.addWidget(card)
+        tag_theme_recursive(self, self.is_dark)
 
     def _build_pair_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setSpacing(10)
-        layout.setContentsMargins(4, 12, 4, 4)
+        layout.setContentsMargins(6, 14, 6, 6)
 
         hint = QLabel(
             "On your phone: Settings \u2192 Developer options \u2192 Wireless debugging "
@@ -94,8 +86,8 @@ class WirelessConnectDialog(QDialog):
         pair_btn.clicked.connect(self._do_pair)
         layout.addWidget(pair_btn)
 
-        divider = QLabel("Then connect using the regular Wireless debugging IP:port shown on that same screen:")
-        divider.setObjectName("PathLabel")
+        divider = QLabel("Then connect using the regular Wireless debugging IP:port:")
+        divider.setObjectName("SubHeaderLabel")
         divider.setWordWrap(True)
         layout.addWidget(divider)
 
@@ -115,7 +107,7 @@ class WirelessConnectDialog(QDialog):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setSpacing(10)
-        layout.setContentsMargins(4, 12, 4, 4)
+        layout.setContentsMargins(6, 14, 6, 6)
 
         hint = QLabel(
             "Already paired this device before, or enabled TCP/IP mode over USB? "
@@ -138,9 +130,9 @@ class WirelessConnectDialog(QDialog):
         layout.addSpacing(6)
         usb_hint = QLabel(
             "No cable handy for the first pairing? If the phone is currently on USB, this "
-            "enables Wi-Fi mode on it directly (Android <11, or as a shortcut on newer versions):"
+            "enables Wi-Fi mode on it directly:"
         )
-        usb_hint.setObjectName("PathLabel")
+        usb_hint.setObjectName("SubHeaderLabel")
         usb_hint.setWordWrap(True)
         layout.addWidget(usb_hint)
 
@@ -157,6 +149,7 @@ class WirelessConnectDialog(QDialog):
         self.status_label.setObjectName("StatusBannerWarning" if is_error else "StatusBannerNeutral")
         self.status_label.style().unpolish(self.status_label)
         self.status_label.style().polish(self.status_label)
+        tag_theme_recursive(self.status_label, self.is_dark)
         self.status_label.setVisible(True)
 
     def _do_pair(self):

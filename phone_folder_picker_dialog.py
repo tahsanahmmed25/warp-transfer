@@ -1,37 +1,55 @@
 # Phone-side FOLDER destination picker for Warp Transfer.
 #
-# Companion to phone_browser_dialog.py's PhoneBrowserDialog (which picks
-# FILES/folders to pull FROM the phone) -- this one picks a single
-# destination FOLDER to push files/folders TO on the phone, with a
-# "New Folder" action, so "Push Files to Phone" is no longer hardcoded to
-# /sdcard/Download with no way to choose or create a different destination.
+# Lets the user navigate the connected device's storage and select or create
+# a destination folder for transfers.
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QWidget, QScrollArea, QGraphicsDropShadowEffect,
-                             QInputDialog, QLineEdit)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+                             QInputDialog, QLineEdit, QSizePolicy)
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QColor, QPixmap, QPainter
+from PyQt6.QtSvg import QSvgRenderer
 
 from theme_utils import tag_theme_recursive
 
 DEFAULT_ROOT = "/sdcard"
 
+_SVG_FOLDER = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>'
+
+
+def _folder_icon_badge(is_dark: bool) -> QWidget:
+    badge = QWidget()
+    badge.setObjectName("IconBadge")
+    badge.setFixedSize(32, 32)
+    layout = QVBoxLayout(badge)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    
+    color = "#D4AF37" if is_dark else "#B8860B"
+    pixmap = QPixmap(QSize(16, 16))
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    QSvgRenderer(_SVG_FOLDER.format(color=color).encode("utf-8")).render(painter)
+    painter.end()
+    
+    label = QLabel()
+    label.setPixmap(pixmap)
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.addWidget(label)
+    return badge
+
 
 class PhoneFolderPickerDialog(QDialog):
     """Modal phone-storage folder browser for choosing (or creating) a
-    single destination directory. Unlike PhoneBrowserDialog (multi-select,
-    files+folders, used for Pull), this is single-target, folders-only
-    navigation, with the CURRENT folder being the thing you confirm --
-    similar in spirit to a native "Select Folder" dialog, adapted for
-    ``adb shell`` since there's no native Android-side folder picker to
-    call into from a desktop app."""
+    single destination directory."""
 
-    def __init__(self, adb_manager, is_dark: bool, start_path: str, parent=None):
+    def __init__(self, adb_manager, is_dark: bool, start_path: str = DEFAULT_ROOT, parent=None):
         super().__init__(parent)
         self.adb_manager = adb_manager
+        self.is_dark = is_dark
         self.setWindowTitle("Choose Destination Folder")
         self.setModal(True)
-        self.setFixedSize(460, 540)
+        self.setFixedSize(560, 620)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -44,29 +62,26 @@ class PhoneFolderPickerDialog(QDialog):
         self.card = QWidget(self)
         self.card.setObjectName("CardContainer")
         card_layout = QVBoxLayout(self.card)
-        card_layout.setContentsMargins(22, 20, 22, 20)
-        card_layout.setSpacing(10)
+        card_layout.setContentsMargins(24, 22, 24, 22)
+        card_layout.setSpacing(12)
 
         title = QLabel("Choose Destination Folder", self.card)
         title.setObjectName("HeaderLabel")
-        title.setStyleSheet("font-size: 17px;")
+        title.setStyleSheet("font-size: 18px;")
         card_layout.addWidget(title)
 
-        subtitle = QLabel("Files will be pushed into the folder you're currently viewing.", self.card)
+        subtitle = QLabel("Files will be saved into the folder you're currently viewing.", self.card)
         subtitle.setObjectName("SubHeaderLabel")
         subtitle.setWordWrap(True)
         card_layout.addWidget(subtitle)
 
-        nav_row = QHBoxLayout()
-        self.up_btn = QPushButton("\u2191 Up", self.card)
-        self.up_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.up_btn.clicked.connect(self._go_up)
-        nav_row.addWidget(self.up_btn)
-        self.path_label = QLabel(self.current_path, self.card)
-        self.path_label.setObjectName("PathLabel")
-        self.path_label.setWordWrap(True)
-        nav_row.addWidget(self.path_label, 1)
-        card_layout.addLayout(nav_row)
+        # Interactive breadcrumb bar
+        self.breadcrumb_wrap = QWidget(self.card)
+        self.breadcrumb_wrap.setObjectName("BreadcrumbWrap")
+        self.breadcrumb_row = QHBoxLayout(self.breadcrumb_wrap)
+        self.breadcrumb_row.setContentsMargins(8, 4, 8, 4)
+        self.breadcrumb_row.setSpacing(4)
+        card_layout.addWidget(self.breadcrumb_wrap)
 
         self.status_label = QLabel("", self.card)
         self.status_label.setObjectName("StatusBannerWarning")
@@ -79,7 +94,7 @@ class PhoneFolderPickerDialog(QDialog):
         self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.list_widget = QWidget()
         self.list_layout = QVBoxLayout(self.list_widget)
-        self.list_layout.setSpacing(4)
+        self.list_layout.setSpacing(6)
         self.list_layout.setContentsMargins(0, 4, 0, 4)
         self.scroll.setWidget(self.list_widget)
         card_layout.addWidget(self.scroll, 1)
@@ -94,7 +109,7 @@ class PhoneFolderPickerDialog(QDialog):
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(cancel_btn)
-        self.confirm_btn = QPushButton("Push Here", self.card)
+        self.confirm_btn = QPushButton("Save Here", self.card)
         self.confirm_btn.setObjectName("PrimaryButton")
         self.confirm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.confirm_btn.clicked.connect(self._confirm_current)
@@ -108,13 +123,11 @@ class PhoneFolderPickerDialog(QDialog):
         shadow.setColor(QColor(0, 0, 0, 120))
         self.card.setGraphicsEffect(shadow)
 
-        tag_theme_recursive(self, is_dark)
+        tag_theme_recursive(self, self.is_dark)
         self._load_dir(self.current_path)
 
     def _list_dirs(self, path: str):
-        """Returns a sorted list of subdirectory names under `path`, or
-        None on an adb error. Folders-only (unlike PhoneBrowserDialog's
-        _list_dir) since a destination target has to be a directory."""
+        """Returns a sorted list of subdirectory names under `path`."""
         code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"ls -1p '{path}'"])
         if code != 0:
             return None
@@ -125,10 +138,31 @@ class PhoneFolderPickerDialog(QDialog):
                 dirs.append(name[:-1])
         return sorted(dirs)
 
+    def _rebuild_breadcrumb(self, path: str):
+        while self.breadcrumb_row.count():
+            item = self.breadcrumb_row.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        segments = [s for s in path.strip("/").split("/") if s]
+        accumulated = ""
+        for i, seg in enumerate(segments):
+            accumulated += f"/{seg}"
+            crumb = QPushButton(seg, self.breadcrumb_wrap)
+            crumb.setObjectName("BreadcrumbBtn")
+            crumb.setCursor(Qt.CursorShape.PointingHandCursor)
+            crumb.clicked.connect(lambda checked=False, p=accumulated: self._load_dir(p))
+            self.breadcrumb_row.addWidget(crumb)
+            if i < len(segments) - 1:
+                sep = QLabel("/", self.breadcrumb_wrap)
+                sep.setObjectName("BreadcrumbSep")
+                self.breadcrumb_row.addWidget(sep)
+        self.breadcrumb_row.addStretch()
+        tag_theme_recursive(self.breadcrumb_wrap, self.is_dark)
+
     def _load_dir(self, path: str):
         self.current_path = path
-        self.path_label.setText(path)
-        self.up_btn.setEnabled(path not in ("/sdcard", "/"))
+        self._rebuild_breadcrumb(path)
 
         while self.list_layout.count():
             item = self.list_layout.takeAt(0)
@@ -146,37 +180,46 @@ class PhoneFolderPickerDialog(QDialog):
 
         if not dirs:
             empty = QLabel("No subfolders here. Use \u201c+ New Folder Here\u201d to create one, "
-                            "or tap \u201cPush Here\u201d to use this folder.", self.list_widget)
+                            "or tap \u201cSave Here\u201d to use this folder.", self.list_widget)
             empty.setObjectName("SubHeaderLabel")
             empty.setWordWrap(True)
             self.list_layout.addWidget(empty)
+            tag_theme_recursive(empty, self.is_dark)
             return
 
         for name in dirs:
             full_path = f"{path.rstrip('/')}/{name}"
-            self.list_layout.addWidget(self._build_row(name, full_path))
+            row = self._build_row(name, full_path)
+            self.list_layout.addWidget(row)
+            tag_theme_recursive(row, self.is_dark)
 
     def _build_row(self, name: str, full_path: str) -> QWidget:
-        row = QPushButton(f"\U0001F4C1  {name}")
-        row.setObjectName("LinkButton")
-        row.setCursor(Qt.CursorShape.PointingHandCursor)
-        row.clicked.connect(lambda: self._load_dir(full_path))
-        return row
+        row = QWidget()
+        row.setObjectName("InnerCard")
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(10, 6, 12, 6)
+        row_layout.setSpacing(10)
 
-    def _go_up(self):
-        if self.current_path in ("/sdcard", "/"):
-            return
-        parent = self.current_path.rsplit("/", 1)[0] or "/"
-        self._load_dir(parent)
+        row_layout.addWidget(_folder_icon_badge(self.is_dark))
+
+        label = QPushButton(name, row)
+        label.setObjectName("BrowserDirBtn")
+        label.setCursor(Qt.CursorShape.PointingHandCursor)
+        label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        label.clicked.connect(lambda: self._load_dir(full_path))
+        row_layout.addWidget(label, 1)
+
+        chevron = QLabel("\u203a", row)
+        chevron.setObjectName("BrowserChevron")
+        row_layout.addWidget(chevron)
+
+        return row
 
     def _create_folder(self):
         name, ok = QInputDialog.getText(self, "New Folder", "Folder name:", QLineEdit.EchoMode.Normal, "")
         name = (name or "").strip()
         if not ok or not name:
             return
-        # Reject path separators outright rather than letting a stray "/"
-        # silently create nested folders the user didn't ask for, or ".."
-        # escape the current directory.
         if "/" in name or name in (".", ".."):
             self.status_label.setText("Folder name can't contain \u201c/\u201d.")
             self.status_label.setVisible(True)
@@ -187,7 +230,7 @@ class PhoneFolderPickerDialog(QDialog):
             self.status_label.setText(f"Couldn't create folder: {stderr.strip() if stderr else 'unknown error'}")
             self.status_label.setVisible(True)
             return
-        self._load_dir(new_path)  # navigate straight into the folder just created
+        self._load_dir(new_path)
 
     def _confirm_current(self):
         self.chosen_path = self.current_path
