@@ -21,6 +21,7 @@ from conflict_dialog import ConflictDialog
 from device_picker import DevicePickerDialog
 from wireless_connect_dialog import WirelessConnectDialog
 from phone_browser_dialog import PhoneBrowserDialog
+from phone_folder_picker_dialog import PhoneFolderPickerDialog
 
 def get_resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -32,14 +33,20 @@ from theme_utils import tag_theme_recursive
 
 # Raw SVG Icons (Lucide style)
 SVG_PHONE = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>'
+SVG_PC = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>'
 SVG_FOLDER = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>'
+SVG_FILE = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>'
+SVG_PLUS = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>'
 SVG_ARROW_LEFT_RIGHT = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>'
+SVG_SWAP = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4 3 8M7 4l4 4M17 8v12M17 20l-4-4M17 20l4-4"/></svg>'
 SVG_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#34C759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>'
 SVG_ALERT = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>'
 SVG_DOWNLOAD = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>'
 SVG_CLOSE = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>'
 SVG_MINIMIZE = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg>'
 SVG_ZAP = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
+SVG_SEARCH = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>'
+SVG_SHIELD = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
 SVG_HELP_CIRCLE = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>'
 SVG_LINK = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
 SVG_MOON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>'
@@ -53,6 +60,8 @@ SVG_BACK = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewB
 SVG_IMAGE = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
 SVG_VIDEO = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>'
 SVG_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+SVG_COPY = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
+SVG_MOVE = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="22"/></svg>'
 
 PHOTO_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "gif", "bmp"]
 VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "3gp", "avi", "webm"]
@@ -65,10 +74,18 @@ def get_svg_content(icon_name, is_dark) -> str:
     
     if icon_name == "phone":
         return SVG_PHONE.format(color=accent)
+    elif icon_name == "pc":
+        return SVG_PC.format(color=accent)
     elif icon_name == "folder":
         return SVG_FOLDER.format(color=accent)
+    elif icon_name == "file":
+        return SVG_FILE.format(color=accent)
+    elif icon_name == "plus":
+        return SVG_PLUS.format(color=accent)
     elif icon_name == "arrow_left_right":
         return SVG_ARROW_LEFT_RIGHT.format(color=text_color)
+    elif icon_name == "swap":
+        return SVG_SWAP.format(color=accent)
     elif icon_name == "close":
         return SVG_CLOSE.format(color=muted)
     elif icon_name == "minimize":
@@ -85,6 +102,10 @@ def get_svg_content(icon_name, is_dark) -> str:
         return SVG_ALERT
     elif icon_name == "zap":
         return SVG_ZAP.format(color=accent)
+    elif icon_name == "search":
+        return SVG_SEARCH.format(color=accent)
+    elif icon_name == "shield":
+        return SVG_SHIELD.format(color=accent)
     elif icon_name == "help_circle":
         return SVG_HELP_CIRCLE.format(color=accent)
     elif icon_name == "link":
@@ -107,6 +128,10 @@ def get_svg_content(icon_name, is_dark) -> str:
         return SVG_VIDEO.format(color=accent)
     elif icon_name == "trash":
         return SVG_TRASH.format(color="#FF6961")
+    elif icon_name == "copy":
+        return SVG_COPY.format(color=accent)
+    elif icon_name == "move":
+        return SVG_MOVE.format(color=accent)
     return ""
 
 
@@ -212,39 +237,55 @@ class QuickActionButton(QPushButton):
 
 class DragDropZone(QWidget):
     files_dropped = pyqtSignal(list)
+    clicked = pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("DropZone")
         self.setAcceptDrops(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 26, 20, 26)
+        layout.setContentsMargins(14, 16, 14, 16)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(10)
+        layout.setSpacing(6)
         
         self.icon_badge_container = QWidget()
         badge_wrap_layout = QVBoxLayout(self.icon_badge_container)
-        badge_wrap_layout.setContentsMargins(0, 0, 0, 8)
+        badge_wrap_layout.setContentsMargins(0, 0, 0, 2)
         badge_wrap_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_label = QLabel()
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         badge_wrap_layout.addWidget(self.icon_label)
         layout.addWidget(self.icon_badge_container)
         
-        self.text_label = QLabel("Drag & Drop Files Here\nto transfer directly to your phone's storage")
+        self.text_label = QLabel("Drag & Drop Files Here", self)
         self.text_label.setObjectName("DragDropTitleLabel")
         self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.text_label)
         
-        self.subtext = QLabel("Supports files & entire directories")
+        self.subtext = QLabel("or click to select from PC", self)
         self.subtext.setObjectName("DragDropSubtextLabel")
         self.subtext.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.subtext)
 
-    def update_theme(self, is_dark):
-        svg_content = get_svg_content("arrow_left_right", is_dark)
-        self.icon_label.setPixmap(get_svg_pixmap(svg_content, QSize(32, 32)))
+    def set_mode(self, is_pc_source: bool, is_dark: bool):
+        if is_pc_source:
+            self.text_label.setText("Drag & Drop Files Here")
+            self.subtext.setText("or click to select from PC")
+            self.icon_label.setPixmap(get_svg_pixmap(get_svg_content("pc", is_dark), QSize(26, 26)))
+        else:
+            self.text_label.setText("Select from Phone Storage")
+            self.subtext.setText("Click to browse phone files & folders")
+            self.icon_label.setPixmap(get_svg_pixmap(get_svg_content("phone", is_dark), QSize(26, 26)))
+
+    def update_theme(self, is_dark, is_pc_source=True):
+        self.set_mode(is_pc_source, is_dark)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -269,10 +310,53 @@ class DragDropZone(QWidget):
             self.files_dropped.emit(paths)
 
 
+class StagedFileItemCard(QWidget):
+    removed = pyqtSignal(int)
+
+    def __init__(self, index: int, item: dict, is_dark: bool, parent=None):
+        super().__init__(parent)
+        self.index = index
+        self.item = item
+        self.setObjectName("StagedFileItemCard")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(8)
+
+        icon_name = "folder" if item.get("is_dir") else "file"
+        badge = make_icon_badge(icon_name, is_dark, size=26, icon_size=14)
+        layout.addWidget(badge)
+
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(1)
+
+        display_name = item.get("name", "File")
+        if len(display_name) > 28:
+            display_name = display_name[:15] + "..." + display_name[-10:]
+        name_label = QLabel(display_name)
+        name_label.setObjectName("StagedFileName")
+        name_label.setToolTip(item.get("path", ""))
+        info_layout.addWidget(name_label)
+
+        size_text = item.get("size_str", "")
+        size_label = QLabel(size_text)
+        size_label.setObjectName("StagedFileSize")
+        info_layout.addWidget(size_label)
+
+        layout.addLayout(info_layout, 1)
+
+        remove_btn = QPushButton("✕")
+        remove_btn.setObjectName("StagedFileRemoveBtn")
+        remove_btn.setFixedSize(22, 22)
+        remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_btn.setToolTip("Remove item")
+        remove_btn.clicked.connect(lambda: self.removed.emit(self.index))
+        layout.addWidget(remove_btn)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        # Pre-initialize page references to prevent AttributeError during early timer checks
         self.onboarding_page_widget = None
         self.dashboard_page_widget = None
         self.history_page_widget = None
@@ -282,21 +366,11 @@ class MainWindow(QMainWindow):
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
-        # 760x600 is the visible card size; +48 in each dimension (24px on
-        # every side) is transparent padding for main_container's ambient
-        # drop shadow (blur=40 in apply_theme()) to bleed into. Previously
-        # main_container filled the window with zero margin, so the shadow's
-        # blur radius extended past the window's actual pixel bounds --
-        # Qt then tried to composite a paint region larger than the native
-        # HWND's layered-window buffer, which Windows rejected with
-        # "UpdateLayeredWindowIndirect failed ... (The parameter is
-        # incorrect.)" on every apply_theme() call (visible in the console
-        # on launch and on every theme toggle -- see Session N+9 screenshot).
-        self.setFixedSize(760 + 48, 600 + 48)
+        
+        self.setFixedSize(830 + 48, 630 + 48)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        # Load local configuration
         self.config_path = os.path.join(os.path.expanduser('~'), 'warp_transfer_config.json')
         self.load_config()
         
@@ -308,21 +382,24 @@ class MainWindow(QMainWindow):
         self.is_paused = False
         self._transfer_start_time = 0
         self._transfer_context = {}  # direction/op_type for history logging
-        # Phase 2 (motion): tracks whether a page cross-fade is still
-        # animating, and holds refs to in-flight animations so PyQt doesn't
-        # garbage-collect them mid-flight (see ui_transitions.fade_to_page).
         self._transition_in_progress = False
         self._page_fade_anim = None
         self._theme_fade_anim = None
+
+        self.transfer_direction = "pc_to_phone"
+        self.transfer_mode = "copy"
+        self.staged_items = []
+        self.current_dest_path = "/sdcard/Download"
+        self.dashboard_device_name = ""
+        self.stepper_nodes = {}
+        self.chip_buttons = []
         
         self.init_ui()
         self.apply_theme()
         
-        # Connection status check timer
         self.check_timer = QTimer(self)
         self.check_timer.timeout.connect(self.check_device_connection)
         
-        # Check ADB install first
         if not self.adb_manager.is_adb_installed():
             self.show_downloader_page()
         else:
@@ -334,9 +411,9 @@ class MainWindow(QMainWindow):
         default_backup = os.path.join(os.path.expanduser('~'), 'Downloads', 'WarpTransferBackup')
         self.config = {
             "backup_destination": default_backup,
-            "theme": "light",  # Default to light mode
-            "conflict_mode": "ask",  # ask | skip | overwrite | rename
-            "throttle_kbps": 0,  # 0 = unlimited
+            "theme": "light",
+            "conflict_mode": "ask",
+            "throttle_kbps": 0,
         }
         
         if os.path.exists(self.config_path):
@@ -354,16 +431,6 @@ class MainWindow(QMainWindow):
             pass
 
     def _remember_known_device(self, device_id: str, friendly_name: str):
-        """Phase 4 (localsend_parity_plan.md): persist a successfully-connected
-        device into config["known_devices"] = {device_id: friendly_name}, so
-        OnboardingWizard can show the lightweight reconnect view instead of
-        the full first-time setup wizard next time this exact device shows up.
-        NOTE: this was previously read at one call site but never written
-        anywhere -- known_devices stayed permanently empty, so the reconnect
-        view could never actually trigger. Only writes+saves when the value
-        genuinely changed, since this is called from the 1.5s poll timer and
-        a disk write on every single tick while already connected would be
-        wasteful."""
         if not device_id:
             return
         known = self.config.setdefault("known_devices", {})
@@ -372,18 +439,12 @@ class MainWindow(QMainWindow):
             self.save_config()
 
     def init_ui(self):
-        # Outer transparent wrapper providing the padding main_container's
-        # shadow needs (see setFixedSize's comment in __init__ for why this
-        # exists). main_container itself keeps its own object name/QSS and
-        # visible rounded-rect styling unchanged -- only WHERE it sits inside
-        # the window changed, not what it looks like.
         outer_wrapper = QWidget(self)
         self.setCentralWidget(outer_wrapper)
         outer_wrapper_layout = QVBoxLayout(outer_wrapper)
         outer_wrapper_layout.setContentsMargins(24, 24, 24, 24)
         outer_wrapper_layout.setSpacing(0)
 
-        # Window Shadow & Rounded Outline Container
         self.main_container = QWidget(outer_wrapper)
         self.main_container.setObjectName("MainWindowContainer")
         outer_wrapper_layout.addWidget(self.main_container)
@@ -392,16 +453,14 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Header/Titlebar (Frameless movement handler)
         self.title_bar = QWidget(self)
         self.title_bar.setObjectName("TitleBar")
-        self.title_bar.setFixedHeight(52)
+        self.title_bar.setFixedHeight(50)
         
         title_layout = QHBoxLayout(self.title_bar)
         title_layout.setContentsMargins(18, 0, 12, 0)
         title_layout.setSpacing(10)
         
-        # Logo badge (accent-tinted rounded container around the app icon)
         self.logo_badge = QWidget()
         self.logo_badge.setObjectName("LogoBadge")
         self.logo_badge.setFixedSize(32, 32)
@@ -419,72 +478,50 @@ class MainWindow(QMainWindow):
         
         title_layout.addStretch()
 
-        # History button
         self.history_btn = QPushButton()
         self.history_btn.setObjectName("TitleBarButton")
         self.history_btn.setFixedSize(30, 30)
         self.history_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.history_btn.setToolTip("Transfer history")
         self.history_btn.clicked.connect(self.show_history_page)
         title_layout.addWidget(self.history_btn)
 
-        # Settings button
         self.settings_btn = QPushButton()
         self.settings_btn.setObjectName("TitleBarButton")
         self.settings_btn.setFixedSize(30, 30)
         self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.settings_btn.setToolTip("Settings")
         self.settings_btn.clicked.connect(self.show_settings_page)
         title_layout.addWidget(self.settings_btn)
         
-        # Theme toggle button
         self.theme_btn = QPushButton()
         self.theme_btn.setObjectName("TitleBarButton")
         self.theme_btn.setFixedSize(30, 30)
         self.theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.theme_btn.setToolTip("Toggle theme")
         self.theme_btn.clicked.connect(self.toggle_theme)
         title_layout.addWidget(self.theme_btn)
         
-        # Minimize button
         self.min_btn = QPushButton()
         self.min_btn.setObjectName("TitleBarButton")
         self.min_btn.setFixedSize(30, 30)
         self.min_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.min_btn.setToolTip("Minimize")
         self.min_btn.clicked.connect(self.showMinimized)
         title_layout.addWidget(self.min_btn)
         
-        # Close button
         self.close_btn = QPushButton()
         self.close_btn.setObjectName("CloseButton")
         self.close_btn.setFixedSize(30, 30)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.close_btn.setToolTip("Close")
         self.close_btn.clicked.connect(self.close_app)
         title_layout.addWidget(self.close_btn)
         
         main_layout.addWidget(self.title_bar)
         
-        # Content Pages Stack
         self.stacked_pages = QStackedWidget(self)
         main_layout.addWidget(self.stacked_pages)
         
-        # Mouse drag events on titlebar for frameless movement
         self.title_bar.mousePressEvent = self.title_bar_press
         self.title_bar.mouseMoveEvent = self.title_bar_move
 
     def apply_theme(self):
-        # Phase 3 rewrite: APP_STYLE (app_style.py) is ONE merged stylesheet
-        # whose selectors are gated on a `theme="dark"/"light"` dynamic QSS
-        # property, loaded into the QApplication exactly ONCE (guarded by
-        # _warp_stylesheet_loaded below). Toggling theme no longer calls
-        # setStyleSheet() again -- that used to force Qt to fully re-parse
-        # and re-cascade the entire stylesheet string across the whole
-        # widget tree on every single click (see dev_notes.md Session N+2/
-        # N+3 for the black-square-flash bug this caused). Now toggling just
-        # flips the `theme` property + unpolish()/polish() via _tag_theme(),
-        # which only re-matches selectors -- much cheaper.
         app = QApplication.instance()
         if app and not getattr(app, "_warp_stylesheet_loaded", False):
             app.setStyleSheet(APP_STYLE)
@@ -492,7 +529,6 @@ class MainWindow(QMainWindow):
 
         self._tag_theme(self)
 
-        # 2. Update Window Border Color based on theme
         bg_color = "#0C0C0E" if self.is_dark_mode else "#F2F2F7"
         border_color = "#1E1E24" if self.is_dark_mode else "#D1D1D6"
         self.main_container.setStyleSheet(f"""
@@ -503,89 +539,23 @@ class MainWindow(QMainWindow):
             }}
         """)
         
-        # Soft ambient shadow around the whole frameless window for depth
-        # against the desktop background.
         add_shadow(self.main_container, blur=40, y_offset=10, alpha=110)
         
-        # 3. Render titlebar and toggle icons
-        self.title_logo.setPixmap(get_svg_pixmap(get_svg_content("phone", self.is_dark_mode), QSize(18, 18)))
-        
-        # Icon pixmaps are swapped per-theme here (get_svg_content bakes the
-        # accent color into the SVG string, so no QSS property change alone
-        # covers that) -- but the buttons' own background/border/hover/pressed
-        # appearance is NOT set here anymore. It used to be: every one of
-        # these 5 buttons got an instance-level setStyleSheet("background:
-        # transparent; border: none; ...") call on every single toggle, even
-        # though #TitleBarButton's QSS base rule (app_style.py) already
-        # declares the identical unconditional background/border, and
-        # #TitleBarButton[theme="..."]:hover/:pressed already define the
-        # correct per-theme hover colors. Mixing an instance-level stylesheet
-        # with the property-based global QSS on the same widgets, re-applied
-        # every toggle, is what caused settings_btn/theme_btn specifically to
-        # sometimes render the WRONG theme's hover/pressed color as a
-        # persistent solid box (confirmed via screenshot: a white box on
-        # settings/theme in dark mode, a black box on the same two in light
-        # mode -- exactly the opposite theme's #TitleBarButton hover color in
-        # both cases). Deleting the redundant instance stylesheets and
-        # letting _tag_theme()'s property+polish mechanism own these buttons
-        # completely, same as every other themed widget in the app, removes
-        # the conflict at the source instead of chasing the exact Qt caching
-        # quirk that triggered it.
-        self.theme_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("sun" if self.is_dark_mode else "moon", self.is_dark_mode), QSize(14, 14))))
-
+        self.title_logo.setPixmap(get_svg_pixmap(get_svg_content("zap", self.is_dark_mode), QSize(18, 18)))
         self.history_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("history", self.is_dark_mode), QSize(15, 15))))
-
         self.settings_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("settings", self.is_dark_mode), QSize(15, 15))))
-        
-        self.min_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("minimize", self.is_dark_mode), QSize(14, 14))))
-        
-        self.close_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("close", self.is_dark_mode), QSize(14, 14))))
-        
-        # 4. Propagate theme updates to child elements if active
-        if self.dashboard_page_widget:
-            self.drop_zone.update_theme(self.is_dark_mode)
+        self.theme_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("sun" if self.is_dark_mode else "moon", self.is_dark_mode), QSize(14, 14))))
+        self.min_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("minimize", self.is_dark_mode), QSize(12, 12))))
+        self.close_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("close", self.is_dark_mode), QSize(12, 12))))
+
+        if self.dashboard_page_widget and hasattr(self, "drop_zone") and self.drop_zone is not None:
+            self.drop_zone.update_theme(self.is_dark_mode, self.transfer_direction == "pc_to_phone")
             self.device_icon_badge_refresh()
 
-        # Settings/History pages are rebuilt fresh each time they're shown,
-        # so no live-refresh needed for them here.
-
     def _tag_theme(self, widget):
-        """Recursively set the `theme` dynamic property (+ unpolish/polish)
-        on `widget` and every descendant. Qt QSS attribute selectors like
-        [theme="dark"] are NOT inherited from an ancestor -- each widget
-        needs the property set on itself for its own rules to match. Call
-        this from apply_theme() on toggle (covers self + whatever's already
-        built), AND on any newly created widget subtree (new pages) so it
-        picks up the CURRENT theme immediately instead of waiting for the
-        next toggle to get tagged.
-
-        FIXED (was a known gap through Session N+9): ConflictDialog and
-        DevicePickerDialog previously built+exec()'d themselves in one
-        static ask(...) call, so MainWindow never had a handle to tag them
-        before they showed. Both dialogs now call the same
-        theme_utils.tag_theme_recursive() this method delegates to,
-        themselves, from their own __init__ -- see conflict_dialog.py /
-        device_picker.py. WirelessConnectDialog was already covered, since
-        MainWindow constructs it directly (see open_wireless_dialog).
-        """
-        # Delegates to the shared theme_utils.tag_theme_recursive() helper
-        # (queue item #1 fix) -- previously this loop lived only here, which
-        # is exactly why ConflictDialog/DevicePickerDialog never got tagged:
-        # there was nothing for them to call. Extracting it means both
-        # dialogs now get the identical, already-proven-correct behavior
-        # (including the setUpdatesEnabled freeze from Session N+8) instead
-        # of a duplicated or simplified copy.
         tag_theme_recursive(widget, self.is_dark_mode)
 
     def _fade_transition(self, target):
-        """Cross-fade `stacked_pages` to `target` (page index or widget) via
-        the shared `fade_to_page` helper (ui_transitions.py) instead of a
-        hard setCurrentIndex()/setCurrentWidget() cut -- see
-        localsend_parity_plan.md Phase 2. Sets `_transition_in_progress` for
-        the fade's duration so check_device_connection's 1.5s poll doesn't
-        stack a second automatic dashboard<->onboarding transition on top of
-        one that's still animating. Keeps the returned animation on
-        `self._page_fade_anim` so it isn't garbage-collected mid-flight."""
         self._transition_in_progress = True
 
         def _done():
@@ -594,29 +564,13 @@ class MainWindow(QMainWindow):
         self._page_fade_anim = fade_to_page(self.stacked_pages, target, on_finished=_done)
 
     def device_icon_badge_refresh(self):
-        # Rebuild the phone icon inside the connected-device badge for the
-        # current theme's accent colour.
-        if hasattr(self, "device_icon"):
-            self.device_icon.setPixmap(get_svg_pixmap(get_svg_content("phone", self.is_dark_mode), QSize(20, 20)))
+        if hasattr(self, "device_icon") and self.device_icon is not None:
+            self.device_icon.setPixmap(get_svg_pixmap(get_svg_content("phone", self.is_dark_mode), QSize(17, 17)))
 
     def toggle_theme(self):
         self.is_dark_mode = not self.is_dark_mode
-        # Repaint first, persist after. apply_theme() is now cheap (Phase 3:
-        # property flip + unpolish/polish instead of a full-app
-        # setStyleSheet() re-parse), but there's no reason to make the
-        # config disk write block the repaint either way, so it still stays
-        # deferred via QTimer.singleShot(0, ...) to the next event-loop
-        # iteration.
         self.apply_theme()
 
-        # Phase 2 (motion): a brief cross-fade to smooth over any remaining
-        # one-frame pop from the property swap. Animates the whole window's
-        # native windowOpacity rather than a per-widget QGraphicsOpacityEffect
-        # -- main_container already carries a QGraphicsDropShadowEffect
-        # (re-applied by apply_theme()'s add_shadow() call on every toggle),
-        # and a QWidget can only hold one graphics effect at a time, so an
-        # opacity effect on main_container would fight the shadow instead of
-        # coexisting with it. windowOpacity sidesteps that entirely.
         self._theme_fade_anim = QPropertyAnimation(self, b"windowOpacity")
         self._theme_fade_anim.setDuration(120)
         self._theme_fade_anim.setStartValue(0.85)
@@ -634,7 +588,6 @@ class MainWindow(QMainWindow):
         self.adb_manager.kill_server()
         self.close()
 
-    # Frameless window dragging methods
     def title_bar_press(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
@@ -1096,13 +1049,207 @@ class MainWindow(QMainWindow):
         history_manager.clear_history()
         self.show_history_page()
 
-    # Create & display Dashboard view
+    # --- Workspace Staging & Direction Methods ---
+
+    def _calc_folder_size(self, path: str) -> int:
+        total = 0
+        try:
+            for root, _, files in os.walk(path):
+                for f in files:
+                    fp = os.path.join(root, f)
+                    if not os.path.islink(fp):
+                        try:
+                            total += os.path.getsize(fp)
+                        except OSError:
+                            pass
+        except Exception:
+            pass
+        return total
+
+    def add_pc_files(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "Select Files to Transfer")
+        if not files:
+            return
+        existing = {item["path"] for item in self.staged_items}
+        for f in files:
+            if f not in existing:
+                sz = 0
+                try:
+                    sz = os.path.getsize(f)
+                except Exception:
+                    pass
+                self.staged_items.append({
+                    "path": f,
+                    "name": os.path.basename(f),
+                    "size": sz,
+                    "size_str": history_manager.format_bytes(sz),
+                    "is_dir": False
+                })
+                existing.add(f)
+        self.refresh_workspace_ui()
+
+    def add_pc_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder to Transfer")
+        if not folder:
+            return
+        existing = {item["path"] for item in self.staged_items}
+        if folder not in existing:
+            sz = self._calc_folder_size(folder)
+            self.staged_items.append({
+                "path": folder,
+                "name": os.path.basename(folder) or folder,
+                "size": sz,
+                "size_str": history_manager.format_bytes(sz) if sz > 0 else "Folder",
+                "is_dir": True
+            })
+        self.refresh_workspace_ui()
+
+    def browse_phone_files(self):
+        selected = PhoneBrowserDialog.ask(self.adb_manager, self.is_dark_mode, self)
+        if not selected:
+            return
+        existing = {item["path"] for item in self.staged_items}
+        for p in selected:
+            if p not in existing:
+                name = p.rstrip("/").split("/")[-1] or p
+                self.staged_items.append({
+                    "path": p,
+                    "name": name,
+                    "size": 0,
+                    "size_str": "Phone Item",
+                    "is_dir": False
+                })
+                existing.add(p)
+        self.refresh_workspace_ui()
+
+    def remove_staged_item(self, idx: int):
+        if 0 <= idx < len(self.staged_items):
+            self.staged_items.pop(idx)
+            self.refresh_workspace_ui()
+
+    def clear_staged_items(self):
+        self.staged_items.clear()
+        self.refresh_workspace_ui()
+
+    def handle_drag_dropped_files(self, paths):
+        if self.transfer_direction != "pc_to_phone":
+            self.set_transfer_direction("pc_to_phone")
+        existing = {item["path"] for item in self.staged_items}
+        for p in paths:
+            if p not in existing:
+                is_dir = os.path.isdir(p)
+                sz = self._calc_folder_size(p) if is_dir else (os.path.getsize(p) if os.path.exists(p) else 0)
+                self.staged_items.append({
+                    "path": p,
+                    "name": os.path.basename(p) or p,
+                    "size": sz,
+                    "size_str": history_manager.format_bytes(sz) if (sz > 0 or not is_dir) else "Folder",
+                    "is_dir": is_dir
+                })
+                existing.add(p)
+        self.refresh_workspace_ui()
+
+    def set_transfer_direction(self, direction: str):
+        if self.transfer_direction == direction:
+            return
+        self.transfer_direction = direction
+        self.staged_items.clear()
+        if direction == "pc_to_phone":
+            self.current_dest_path = "/sdcard/Download"
+        else:
+            self.current_dest_path = self.config.get("backup_destination", os.path.join(os.path.expanduser('~'), 'Downloads', 'WarpTransferBackup'))
+        if self.dashboard_device_name:
+            self.show_dashboard_page(self.dashboard_device_name)
+
+    def toggle_transfer_direction(self):
+        new_dir = "phone_to_pc" if self.transfer_direction == "pc_to_phone" else "pc_to_phone"
+        self.set_transfer_direction(new_dir)
+
+    def set_dest_quick_chip(self, path: str):
+        self.current_dest_path = path
+        self.refresh_destination_ui()
+
+    def change_destination_folder(self):
+        if self.transfer_direction == "pc_to_phone":
+            chosen = PhoneFolderPickerDialog.ask(self.adb_manager, self.is_dark_mode, self.current_dest_path, self)
+            if chosen:
+                self.current_dest_path = chosen
+                self.refresh_destination_ui()
+        else:
+            chosen = QFileDialog.getExistingDirectory(self, "Select Destination Folder", self.current_dest_path)
+            if chosen:
+                self.current_dest_path = os.path.abspath(chosen)
+                self.config["backup_destination"] = self.current_dest_path
+                self.save_config()
+                self.refresh_destination_ui()
+
+    def set_transfer_mode(self, mode: str):
+        self.transfer_mode = mode
+        self.refresh_mode_ui()
+
+    def get_staged_total_size(self) -> int:
+        return sum(item.get("size", 0) for item in self.staged_items)
+
+    def refresh_workspace_ui(self):
+        if not hasattr(self, "staged_list_layout"):
+            return
+        
+        while self.staged_list_layout.count():
+            child = self.staged_list_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        has_items = len(self.staged_items) > 0
+        self.drop_zone_container.setVisible(not has_items)
+        self.staged_list_scroll.setVisible(has_items)
+        self.staging_summary_bar.setVisible(has_items)
+
+        if has_items:
+            for idx, item in enumerate(self.staged_items):
+                card = StagedFileItemCard(idx, item, self.is_dark_mode, self.staged_list_widget)
+                card.removed.connect(self.remove_staged_item)
+                self.staged_list_layout.addWidget(card)
+                self._tag_theme(card)
+            self.staged_list_layout.addStretch()
+
+            total_bytes = self.get_staged_total_size()
+            size_str = history_manager.format_bytes(total_bytes) if total_bytes > 0 else ""
+            summary_text = f"{len(self.staged_items)} item(s)" + (f" • {size_str}" if size_str else "")
+            self.staging_summary_pill.setText(summary_text)
+
+        can_transfer = has_items and (self.transfer_mode in ["copy", "move"])
+        self.start_transfer_btn.setEnabled(can_transfer)
+        if can_transfer:
+            self.start_transfer_btn.setText(f"Start Transfer ({len(self.staged_items)}) ➔")
+        else:
+            self.start_transfer_btn.setText("Start Transfer ➔")
+
+    def refresh_destination_ui(self):
+        if hasattr(self, "dest_path_label"):
+            disp = self.current_dest_path
+            if len(disp) > 38:
+                disp = disp[:18] + "..." + disp[-18:]
+            self.dest_path_label.setText(disp)
+            self.dest_path_label.setToolTip(self.current_dest_path)
+
+        for btn, chip_path in self.chip_buttons:
+            is_active = (self.current_dest_path.rstrip("/\\") == chip_path.rstrip("/\\"))
+            btn.setProperty("active", is_active)
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+    def refresh_mode_ui(self):
+        if hasattr(self, "copy_mode_btn") and hasattr(self, "move_mode_btn"):
+            self.copy_mode_btn.setChecked(self.transfer_mode == "copy")
+            self.move_mode_btn.setChecked(self.transfer_mode == "move")
+            if hasattr(self, "move_warning_label"):
+                self.move_warning_label.setVisible(self.transfer_mode == "move")
+        self.refresh_workspace_ui()
+
+    # --- Dashboard Page Construction ---
+
     def show_dashboard_page(self, device_name):
-        # Drop any previous dashboard widget before building a fresh one.
-        # This method can be re-entered automatically (via check_device_connection's
-        # 1.5s poll) on flaky USB/wireless connections, so without this guard a
-        # long, unstable session would silently accumulate one orphaned
-        # QWidget tree per reconnect for as long as the app stays open.
+        self.dashboard_device_name = device_name
         if self.dashboard_page_widget is not None:
             self.stacked_pages.removeWidget(self.dashboard_page_widget)
             self.dashboard_page_widget.deleteLater()
@@ -1110,29 +1257,29 @@ class MainWindow(QMainWindow):
 
         self.dashboard_page_widget = QWidget()
         layout = QVBoxLayout(self.dashboard_page_widget)
-        layout.setContentsMargins(30, 25, 30, 25)
-        layout.setSpacing(14)
+        layout.setContentsMargins(22, 14, 22, 16)
+        layout.setSpacing(10)
         
-        # Connected Device Header Bar
+        # 1. Connected Device Header Bar
         header = QWidget()
         header.setObjectName("InnerCard")
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(15, 12, 15, 12)
-        header_layout.setSpacing(12)
+        header_layout.setContentsMargins(14, 8, 14, 8)
+        header_layout.setSpacing(10)
         
         device_icon_badge = QWidget()
         device_icon_badge.setObjectName("IconBadge")
-        device_icon_badge.setFixedSize(38, 38)
+        device_icon_badge.setFixedSize(32, 32)
         dib_layout = QVBoxLayout(device_icon_badge)
         dib_layout.setContentsMargins(0, 0, 0, 0)
         dib_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.device_icon = QLabel()
-        self.device_icon.setPixmap(get_svg_pixmap(get_svg_content("phone", self.is_dark_mode), QSize(20, 20)))
+        self.device_icon.setPixmap(get_svg_pixmap(get_svg_content("phone", self.is_dark_mode), QSize(17, 17)))
         dib_layout.addWidget(self.device_icon)
         header_layout.addWidget(device_icon_badge)
         
         device_info = QVBoxLayout()
-        device_info.setSpacing(2)
+        device_info.setSpacing(1)
         device_title = QLabel(device_name)
         device_title.setObjectName("DeviceTitleLabel")
         device_status = QLabel("Connected via USB Debugging (Max Speed)")
@@ -1141,189 +1288,417 @@ class MainWindow(QMainWindow):
         device_info.addWidget(device_status)
         header_layout.addLayout(device_info)
         header_layout.addStretch()
-        
+
+        # Top Direction Segmented Toggle Bar
+        dir_bar = QWidget()
+        dir_bar.setObjectName("DirectionSegmentContainer")
+        dir_bar_layout = QHBoxLayout(dir_bar)
+        dir_bar_layout.setContentsMargins(3, 3, 3, 3)
+        dir_bar_layout.setSpacing(4)
+
+        self.pc_to_phone_btn = QPushButton("💻 PC ➔ 📱 Phone")
+        self.pc_to_phone_btn.setObjectName("DirectionSegmentBtn")
+        self.pc_to_phone_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pc_to_phone_btn.setProperty("active", self.transfer_direction == "pc_to_phone")
+        self.pc_to_phone_btn.clicked.connect(lambda: self.set_transfer_direction("pc_to_phone"))
+        dir_bar_layout.addWidget(self.pc_to_phone_btn)
+
+        self.dir_swap_btn = QPushButton("⇄")
+        self.dir_swap_btn.setObjectName("DirectionSwapBtn")
+        self.dir_swap_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.dir_swap_btn.setToolTip("Swap Transfer Direction")
+        self.dir_swap_btn.clicked.connect(self.toggle_transfer_direction)
+        dir_bar_layout.addWidget(self.dir_swap_btn)
+
+        self.phone_to_pc_btn = QPushButton("📱 Phone ➔ 💻 PC")
+        self.phone_to_pc_btn.setObjectName("DirectionSegmentBtn")
+        self.phone_to_pc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.phone_to_pc_btn.setProperty("active", self.transfer_direction == "phone_to_pc")
+        self.phone_to_pc_btn.clicked.connect(lambda: self.set_transfer_direction("phone_to_pc"))
+        dir_bar_layout.addWidget(self.phone_to_pc_btn)
+
+        header_layout.addWidget(dir_bar)
         layout.addWidget(header)
-        
-        # Grid of Quick Action Buttons -- main backups
-        quick_grid = QHBoxLayout()
-        quick_grid.setSpacing(15)
-        
-        media_btn = self._build_quick_action(
-            "zap", "Quick Media Backup", "Backup DCIM, Camera, & Photos to your PC",
-            self.trigger_media_backup
-        )
-        quick_grid.addWidget(media_btn)
-        
-        android_btn = self._build_quick_action(
-            "folder", "Android Folder Backup", "Backup entire /sdcard/Android folder using parallel streams",
-            self.trigger_android_backup
-        )
-        quick_grid.addWidget(android_btn)
-        
-        layout.addLayout(quick_grid)
+        add_shadow(header, blur=14, y_offset=2, alpha=50)
 
-        # Second row: filtered quick backups (Photos Only / Videos Only)
-        filter_grid = QHBoxLayout()
-        filter_grid.setSpacing(15)
+        # 2. Split Two-Column Transfer Workspace
+        split_layout = QHBoxLayout()
+        split_layout.setSpacing(12)
 
-        photos_btn = self._build_quick_action(
-            "image", "Photos Only", "Backup just image files from DCIM & Pictures",
-            self.trigger_photos_backup
-        )
-        filter_grid.addWidget(photos_btn)
+        is_pc_src = (self.transfer_direction == "pc_to_phone")
 
-        videos_btn = self._build_quick_action(
-            "video", "Videos Only", "Backup just video files from DCIM & Movies",
-            self.trigger_videos_backup
-        )
-        filter_grid.addWidget(videos_btn)
+        # --- LEFT COLUMN (SOURCE) ---
+        left_col = QWidget()
+        left_col.setObjectName("SplitColumnCard")
+        left_layout = QVBoxLayout(left_col)
+        left_layout.setContentsMargins(14, 12, 14, 12)
+        left_layout.setSpacing(8)
 
-        layout.addLayout(filter_grid)
-        
-        # Drag & Drop Zone
+        # Left Column Header
+        left_header = QHBoxLayout()
+        left_header.setSpacing(8)
+        src_icon = "pc" if is_pc_src else "phone"
+        left_header.addWidget(make_icon_badge(src_icon, self.is_dark_mode, size=28, icon_size=15))
+        src_title = QLabel("Source: PC" if is_pc_src else "Source: Phone")
+        src_title.setObjectName("ColumnHeaderTitle")
+        left_header.addWidget(src_title)
+        left_header.addStretch()
+
+        src_badge = QLabel("SOURCE")
+        src_badge.setObjectName("ColumnRoleBadge")
+        src_badge.setFixedHeight(22)
+        src_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        src_badge.setProperty("roleType", "source")
+        left_header.addWidget(src_badge)
+        left_layout.addLayout(left_header)
+
+        # Staging: Empty DropZone Container
+        self.drop_zone_container = QWidget()
+        dzc_layout = QVBoxLayout(self.drop_zone_container)
+        dzc_layout.setContentsMargins(0, 0, 0, 0)
+        dzc_layout.setSpacing(8)
+
         self.drop_zone = DragDropZone(self)
-        self.drop_zone.update_theme(self.is_dark_mode)
+        self.drop_zone.update_theme(self.is_dark_mode, is_pc_src)
         self.drop_zone.files_dropped.connect(self.handle_drag_dropped_files)
-        layout.addWidget(self.drop_zone)
-        
-        # Footer Action Row (destination glance + custom transfer)
-        footer = QHBoxLayout()
-        
-        dest_layout = QVBoxLayout()
-        dest_layout.setSpacing(2)
-        dest_header = QLabel("Backup Destination:")
-        dest_header.setObjectName("DestHeaderLabel")
-        self.dest_label = QLabel(self.get_truncated_dest_path())
-        self.dest_label.setObjectName("PathLabel")
-        dest_layout.addWidget(dest_header)
-        dest_layout.addWidget(self.dest_label)
-        footer.addLayout(dest_layout)
-        
-        footer.addStretch()
+        if is_pc_src:
+            self.drop_zone.clicked.connect(self.add_pc_files)
+        else:
+            self.drop_zone.clicked.connect(self.browse_phone_files)
+        dzc_layout.addWidget(self.drop_zone, 1)
 
-        # Explicit PC -> Phone entry point (previously only reachable via
-        # implicit drag-and-drop, and only ever as a Copy). Placed next to
-        # Pull Custom Files so both transfer directions are equally
-        # discoverable from the same footer row.
-        push_custom_btn = QPushButton("Push Files to Phone", self)
-        push_custom_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        push_custom_btn.clicked.connect(self.trigger_custom_push)
-        footer.addWidget(push_custom_btn)
+        # Action Buttons when Empty
+        empty_actions = QHBoxLayout()
+        empty_actions.setSpacing(8)
+        if is_pc_src:
+            add_files_btn = QPushButton("+ Add Files", self)
+            add_files_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            add_files_btn.clicked.connect(self.add_pc_files)
+            empty_actions.addWidget(add_files_btn)
 
-        pull_custom_btn = QPushButton("Pull Custom Files", self)
-        pull_custom_btn.setObjectName("PrimaryButton")
-        pull_custom_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        pull_custom_btn.clicked.connect(self.trigger_custom_pull)
-        footer.addWidget(pull_custom_btn)
-        
-        layout.addLayout(footer)
-        
-        # Subtle elevation for the header card and drop zone.
-        # Quick-action tiles now manage their own hover-responsive shadow
-        # via the QuickActionButton class, so they're not set here.
-        add_shadow(header, blur=18, y_offset=3, alpha=60)
-        add_shadow(self.drop_zone, blur=20, y_offset=4, alpha=40)
-        
+            add_folder_btn = QPushButton("+ Add Folder", self)
+            add_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            add_folder_btn.clicked.connect(self.add_pc_folder)
+            empty_actions.addWidget(add_folder_btn)
+        else:
+            browse_phone_btn = QPushButton("+ Browse Phone Files", self)
+            browse_phone_btn.setObjectName("PrimaryButton")
+            browse_phone_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            browse_phone_btn.clicked.connect(self.browse_phone_files)
+            empty_actions.addWidget(browse_phone_btn)
+        dzc_layout.addLayout(empty_actions)
+        left_layout.addWidget(self.drop_zone_container, 1)
+
+        # Staging: Populated Scroll Area
+        self.staged_list_scroll = QScrollArea()
+        self.staged_list_scroll.setObjectName("StagedFileListScroll")
+        self.staged_list_scroll.setWidgetResizable(True)
+        self.staged_list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.staged_list_widget = QWidget()
+        self.staged_list_layout = QVBoxLayout(self.staged_list_widget)
+        self.staged_list_layout.setContentsMargins(2, 2, 2, 2)
+        self.staged_list_layout.setSpacing(6)
+        self.staged_list_scroll.setWidget(self.staged_list_widget)
+        left_layout.addWidget(self.staged_list_scroll, 1)
+
+        # Staging Summary & Add More Bar
+        self.staging_summary_bar = QWidget()
+        ssb_layout = QVBoxLayout(self.staging_summary_bar)
+        ssb_layout.setContentsMargins(0, 0, 0, 0)
+        ssb_layout.setSpacing(6)
+
+        ssb_top = QHBoxLayout()
+        ssb_top.setSpacing(6)
+        if is_pc_src:
+            add_more_btn = QPushButton("+ Add Files", self)
+            add_more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            add_more_btn.clicked.connect(self.add_pc_files)
+            ssb_top.addWidget(add_more_btn)
+
+            add_more_folder = QPushButton("+ Folder", self)
+            add_more_folder.setCursor(Qt.CursorShape.PointingHandCursor)
+            add_more_folder.clicked.connect(self.add_pc_folder)
+            ssb_top.addWidget(add_more_folder)
+        else:
+            add_more_phone = QPushButton("+ Browse Phone", self)
+            add_more_phone.setCursor(Qt.CursorShape.PointingHandCursor)
+            add_more_phone.clicked.connect(self.browse_phone_files)
+            ssb_top.addWidget(add_more_phone)
+
+        clear_all_btn = QPushButton("Clear All", self)
+        clear_all_btn.setObjectName("DangerButton")
+        clear_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        clear_all_btn.clicked.connect(self.clear_staged_items)
+        ssb_top.addWidget(clear_all_btn)
+        ssb_layout.addLayout(ssb_top)
+
+        self.staging_summary_pill = QLabel("0 items")
+        self.staging_summary_pill.setObjectName("StagingSummaryPill")
+        self.staging_summary_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ssb_layout.addWidget(self.staging_summary_pill)
+
+        left_layout.addWidget(self.staging_summary_bar)
+        split_layout.addWidget(left_col, 1)
+
+        # --- RIGHT COLUMN (DESTINATION) ---
+        right_col = QWidget()
+        right_col.setObjectName("SplitColumnCard")
+        right_layout = QVBoxLayout(right_col)
+        right_layout.setContentsMargins(14, 12, 14, 12)
+        right_layout.setSpacing(10)
+
+        # Right Column Header
+        right_header = QHBoxLayout()
+        right_header.setSpacing(8)
+        dest_icon = "phone" if is_pc_src else "pc"
+        right_header.addWidget(make_icon_badge(dest_icon, self.is_dark_mode, size=28, icon_size=15))
+        dest_title = QLabel("Destination: Phone" if is_pc_src else "Destination: PC")
+        dest_title.setObjectName("ColumnHeaderTitle")
+        right_header.addWidget(dest_title)
+        right_header.addStretch()
+
+        dest_badge = QLabel("DESTINATION")
+        dest_badge.setObjectName("ColumnRoleBadge")
+        dest_badge.setFixedHeight(22)
+        dest_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        dest_badge.setProperty("roleType", "dest")
+        right_header.addWidget(dest_badge)
+        right_layout.addLayout(right_header)
+
+        # Landing Folder Card
+        dest_card = QWidget()
+        dest_card.setObjectName("InnerCard")
+        dc_layout = QVBoxLayout(dest_card)
+        dc_layout.setContentsMargins(12, 10, 12, 10)
+        dc_layout.setSpacing(6)
+
+        dc_head = QHBoxLayout()
+        dc_head.setSpacing(8)
+        dc_head.addWidget(make_icon_badge("folder", self.is_dark_mode, size=24, icon_size=13))
+        dc_title = QLabel("Landing Directory:")
+        dc_title.setObjectName("SubHeaderLabel")
+        dc_head.addWidget(dc_title)
+        dc_head.addStretch()
+        dc_layout.addLayout(dc_head)
+
+        self.dest_path_label = QLabel(self.current_dest_path)
+        self.dest_path_label.setObjectName("PathLabel")
+        self.dest_path_label.setWordWrap(True)
+        dc_layout.addWidget(self.dest_path_label)
+
+        browse_dest_btn = QPushButton("Change Folder...", self)
+        browse_dest_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        browse_dest_btn.clicked.connect(self.change_destination_folder)
+        dc_layout.addWidget(browse_dest_btn)
+        right_layout.addWidget(dest_card)
+
+        # Quick Location Chips
+        chips_section = QVBoxLayout()
+        chips_section.setSpacing(6)
+        chips_title = QLabel("Quick Locations:")
+        chips_title.setObjectName("SubHeaderLabel")
+        chips_section.addWidget(chips_title)
+
+        self.chip_buttons = []
+        chips_grid = QVBoxLayout()
+        chips_grid.setSpacing(6)
+
+        if is_pc_src:
+            phone_chips = [
+                ("Downloads", "/sdcard/Download"),
+                ("DCIM / Camera", "/sdcard/DCIM"),
+                ("Pictures", "/sdcard/Pictures"),
+                ("Movies", "/sdcard/Movies"),
+                ("Music", "/sdcard/Music"),
+            ]
+            row1 = QHBoxLayout()
+            row1.setSpacing(6)
+            row2 = QHBoxLayout()
+            row2.setSpacing(6)
+            for i, (name, path) in enumerate(phone_chips):
+                btn = QPushButton(name)
+                btn.setObjectName("DestQuickChip")
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.clicked.connect(lambda _, p=path: self.set_dest_quick_chip(p))
+                self.chip_buttons.append((btn, path))
+                if i < 2:
+                    row1.addWidget(btn)
+                else:
+                    row2.addWidget(btn)
+            chips_grid.addLayout(row1)
+            chips_grid.addLayout(row2)
+        else:
+            home = os.path.expanduser('~')
+            pc_chips = [
+                ("Downloads", os.path.join(home, 'Downloads')),
+                ("Desktop", os.path.join(home, 'Desktop')),
+                ("Pictures", os.path.join(home, 'Pictures')),
+                ("Videos", os.path.join(home, 'Videos')),
+                ("Warp Backup", self.config.get("backup_destination", os.path.join(home, 'Downloads', 'WarpTransferBackup'))),
+            ]
+            row1 = QHBoxLayout()
+            row1.setSpacing(6)
+            row2 = QHBoxLayout()
+            row2.setSpacing(6)
+            for i, (name, path) in enumerate(pc_chips):
+                btn = QPushButton(name)
+                btn.setObjectName("DestQuickChip")
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.clicked.connect(lambda _, p=path: self.set_dest_quick_chip(p))
+                self.chip_buttons.append((btn, path))
+                if i < 2:
+                    row1.addWidget(btn)
+                else:
+                    row2.addWidget(btn)
+            chips_grid.addLayout(row1)
+            chips_grid.addLayout(row2)
+
+        chips_section.addLayout(chips_grid)
+        right_layout.addLayout(chips_section)
+        right_layout.addStretch()
+        split_layout.addWidget(right_col, 1)
+
+        layout.addLayout(split_layout, 1)
+
+        # 3. Bottom Action & Mode Bar
+        bottom_bar = QHBoxLayout()
+        bottom_bar.setSpacing(12)
+
+        # Mode Segment Switcher
+        mode_box = QHBoxLayout()
+        mode_box.setSpacing(6)
+
+        self.copy_mode_btn = QPushButton("📋 Copy", self)
+        self.copy_mode_btn.setObjectName("ModeSegmentBtn")
+        self.copy_mode_btn.setCheckable(True)
+        self.copy_mode_btn.setChecked(self.transfer_mode == "copy")
+        self.copy_mode_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.copy_mode_btn.clicked.connect(lambda: self.set_transfer_mode("copy"))
+        mode_box.addWidget(self.copy_mode_btn)
+
+        self.move_mode_btn = QPushButton("✂️ Move", self)
+        self.move_mode_btn.setObjectName("ModeSegmentBtn")
+        self.move_mode_btn.setCheckable(True)
+        self.move_mode_btn.setChecked(self.transfer_mode == "move")
+        self.move_mode_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.move_mode_btn.clicked.connect(lambda: self.set_transfer_mode("move"))
+        mode_box.addWidget(self.move_mode_btn)
+
+        self.move_warning_label = QLabel("Deletes source files after verify")
+        self.move_warning_label.setObjectName("DangerStatusLabel")
+        self.move_warning_label.setVisible(self.transfer_mode == "move")
+        mode_box.addWidget(self.move_warning_label)
+        bottom_bar.addLayout(mode_box)
+
+        bottom_bar.addStretch()
+
+        # Start Transfer Button
+        self.start_transfer_btn = QPushButton("Start Transfer ➔", self)
+        self.start_transfer_btn.setObjectName("PrimaryButton")
+        self.start_transfer_btn.setFixedHeight(38)
+        self.start_transfer_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.start_transfer_btn.clicked.connect(self.execute_staged_transfer)
+        bottom_bar.addWidget(self.start_transfer_btn)
+
+        layout.addLayout(bottom_bar)
+
+        add_shadow(left_col, blur=18, y_offset=4, alpha=40)
+        add_shadow(right_col, blur=18, y_offset=4, alpha=40)
+
         self.stacked_pages.addWidget(self.dashboard_page_widget)
         self._fade_transition(self.dashboard_page_widget)
         self._tag_theme(self.dashboard_page_widget)
+        
+        self.refresh_workspace_ui()
+        self.refresh_destination_ui()
 
-    def _build_quick_action(self, icon_name, title_text, desc_text, on_click) -> QWidget:
-        btn = QuickActionButton()
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(on_click)
-        outer = QVBoxLayout(btn)
-        # #QuickActionButton's QSS rule declares `padding: 16px`, but that's
-        # only ever honored by Qt for a QPushButton's own built-in text/icon
-        # label rendering -- it is NOT applied to a manually-set child layout
-        # like this one. With margins at 0 (the old value), the badge/title/
-        # desc sat flush against the tile's rounded-corner edges instead of
-        # getting the intended breathing room, which is what read as
-        # "unpolished" on real-device screenshots. Setting the layout's own
-        # margins to match the QSS intent directly, since that's the only
-        # margin Qt will actually respect here.
-        outer.setContentsMargins(16, 16, 16, 16)
-        outer.setSpacing(10)
-        badge = make_icon_badge(icon_name, self.is_dark_mode, size=36, icon_size=18)
-        outer.addWidget(badge, 0, Qt.AlignmentFlag.AlignLeft)
-        title = QLabel(title_text, btn)
-        title.setObjectName("QuickActionButtonTitle")
-        desc = QLabel(desc_text, btn)
-        desc.setObjectName("QuickActionButtonDesc")
-        desc.setWordWrap(True)
-        outer.addWidget(title)
-        outer.addWidget(desc)
-        return btn
-
-    def get_truncated_dest_path(self) -> str:
-        path = self.config["backup_destination"]
-        if len(path) > 42:
-            return path[:20] + "..." + path[-20:]
-        return path
-
-    def change_backup_destination(self):
-        new_dir = QFileDialog.getExistingDirectory(
-            self, 
-            "Select Backup Destination Folder", 
-            self.config["backup_destination"]
+    def execute_staged_transfer(self):
+        if not self.staged_items:
+            return
+        if self.active_coordinator:
+            return
+        src_paths = [item["path"] for item in self.staged_items]
+        self.start_transfer_ui(
+            self.transfer_direction,
+            self.transfer_mode,
+            src_paths,
+            self.current_dest_path
         )
-        if new_dir:
-            self.config["backup_destination"] = os.path.abspath(new_dir)
-            self.save_config()
-            if hasattr(self, "dest_label"):
-                self.dest_label.setText(self.get_truncated_dest_path())
-            if hasattr(self, "settings_dest_label"):
-                self.settings_dest_label.setText(self.get_truncated_dest_path())
 
-    @staticmethod
-    def _format_transfer_route(direction, src_paths, dest_path) -> str:
-        """One-line 'what's actually moving where' summary for the top of
-        the progress page. Kept short/truncated since long absolute paths
-        (especially Android ones) blow past the card's width easily."""
-        if len(src_paths) == 1:
-            src_display = os.path.basename(src_paths[0].rstrip("/\\")) or src_paths[0]
-        else:
-            src_display = f"{len(src_paths)} selected items"
+    # --- 4-Stage Stepper Progress Screen ---
 
-        dest_display = dest_path
-        if len(dest_display) > 44:
-            dest_display = dest_display[:20] + "..." + dest_display[-20:]
+    def _build_stepper_node(self, step_num: int, title_text: str, parent: QWidget) -> tuple[QWidget, QLabel, QLabel]:
+        node = QWidget(parent)
+        layout = QVBoxLayout(node)
+        layout.setContentsMargins(4, 2, 4, 2)
+        layout.setSpacing(3)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        if direction == "phone_to_pc":
-            return f"{src_display}  \u2022  Phone \u2192 PC\nTo: {dest_display}"
-        return f"{src_display}  \u2022  PC \u2192 Phone\nTo: {dest_display}"
+        badge = QLabel(str(step_num), node)
+        badge.setObjectName("StepBadge")
+        badge.setProperty("stepState", "pending")
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(badge, 0, Qt.AlignmentFlag.AlignCenter)
 
-    # Trigger Transfers
+        label = QLabel(title_text, node)
+        label.setObjectName("StepLabel")
+        label.setProperty("stepState", "pending")
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label, 0, Qt.AlignmentFlag.AlignCenter)
+
+        return node, badge, label
+
     def start_transfer_ui(self, direction, op_type, src_paths, dest_path, extensions=None):
-        # Setup Progress Page
         page = QWidget()
         outer_layout = QVBoxLayout(page)
-        outer_layout.setContentsMargins(40, 40, 40, 40)
+        outer_layout.setContentsMargins(36, 24, 36, 24)
         outer_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         card = QWidget()
         card.setObjectName("CardContainer")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(40, 36, 40, 36)
-        layout.setSpacing(18)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(14)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        title = QLabel("Copying Files...", card)
+        title_text = "Moving Files..." if op_type == "move" else "Transferring Files..."
+        title = QLabel(title_text, card)
         title.setObjectName("HeaderLabel")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
-        # FIX (real-device report: "progress page doesn't show any info such
-        # as where it's copying from to where and what folder"): previously
-        # nothing on this page ever showed the actual source/destination --
-        # just generic placeholder text ("Initializing engine...") that
-        # never changed until the per-file/batch labels below started
-        # updating. This route line stays fixed for the whole transfer.
         route_label = QLabel(self._format_transfer_route(direction, src_paths, dest_path), card)
         route_label.setObjectName("PathLabel")
         route_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         route_label.setWordWrap(True)
         layout.addWidget(route_label)
+
+        # 4-Stage Pipeline Stepper
+        stepper_box = QWidget(card)
+        stepper_box.setObjectName("StepperContainer")
+        stepper_layout = QHBoxLayout(stepper_box)
+        stepper_layout.setContentsMargins(12, 10, 12, 10)
+        stepper_layout.setSpacing(6)
+
+        self.stepper_nodes = {}
+        steps_info = [
+            ("indexing", 1, "Indexing"),
+            ("setup", 2, "Channel Setup"),
+            ("streaming", 3, "Transferring"),
+            ("verifying", 4, "Verification"),
+        ]
+
+        for i, (key, num, stitle) in enumerate(steps_info):
+            node, badge, lbl = self._build_stepper_node(num, stitle, stepper_box)
+            self.stepper_nodes[key] = {"badge": badge, "label": lbl, "num": num}
+            stepper_layout.addWidget(node)
+            if i < len(steps_info) - 1:
+                conn = QWidget(stepper_box)
+                conn.setObjectName("StepConnector")
+                conn.setFixedHeight(2)
+                stepper_layout.addWidget(conn, 1)
+
+        layout.addWidget(stepper_box)
         
         self.transfer_file_label = QLabel("Initializing engine...", card)
         self.transfer_file_label.setObjectName("TransferFileLabel")
@@ -1335,19 +1710,19 @@ class MainWindow(QMainWindow):
         self.transfer_bar.setValue(0)
         layout.addWidget(self.transfer_bar)
         
-        # Detail row wrapped in its own inner card for visual separation
+        # Detail telemetry card
         detail_card = QWidget()
         detail_card.setObjectName("InnerCard")
         detail_layout = QVBoxLayout(detail_card)
-        detail_layout.setContentsMargins(16, 12, 16, 12)
-        self.transfer_details = QLabel("Preparing worker threads...", detail_card)
+        detail_layout.setContentsMargins(14, 10, 14, 10)
+        self.transfer_details = QLabel("Preparing worker channels...", detail_card)
         self.transfer_details.setObjectName("TransferDetailLabel")
         self.transfer_details.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.transfer_details.setWordWrap(True)
         detail_layout.addWidget(self.transfer_details)
         layout.addWidget(detail_card)
 
-        # Pause/Resume + Cancel row
+        # Controls Row
         controls_row = QHBoxLayout()
         controls_row.setSpacing(10)
 
@@ -1374,10 +1749,6 @@ class MainWindow(QMainWindow):
         
         # Stop background connection checks during active transfer
         self.check_timer.stop()
-        # Visually disable History/Settings while a transfer is running --
-        # paired with the active_coordinator guards in show_settings_page/
-        # show_history_page/return_to_dashboard, so it's obvious up front
-        # these aren't available rather than silently doing nothing on click.
         self.history_btn.setEnabled(False)
         self.settings_btn.setEnabled(False)
         self.is_paused = False
@@ -1395,17 +1766,58 @@ class MainWindow(QMainWindow):
             throttle_kbps=self.config.get("throttle_kbps", 0),
             extensions=extensions,
         )
+        self.active_coordinator.stage_changed.connect(self.on_transfer_stage_changed)
         self.active_coordinator.progress_updated.connect(self.update_transfer_progress)
         self.active_coordinator.transfer_finished.connect(self.on_transfer_finished)
         self.active_coordinator.conflicts_found.connect(self.handle_conflicts_found)
         self.active_coordinator.paused_changed.connect(self.on_paused_changed)
         self.active_coordinator.start()
 
+    def on_transfer_stage_changed(self, stage_id: str, stage_desc: str):
+        self.transfer_file_label.setText(stage_desc)
+        stage_order = ["indexing", "setup", "streaming", "verifying"]
+        current_idx = stage_order.index(stage_id) if stage_id in stage_order else 0
+
+        for idx, key in enumerate(stage_order):
+            if key not in self.stepper_nodes:
+                continue
+            badge = self.stepper_nodes[key]["badge"]
+            label = self.stepper_nodes[key]["label"]
+            num = self.stepper_nodes[key]["num"]
+
+            if idx < current_idx:
+                badge.setProperty("stepState", "done")
+                badge.setText("✓")
+                label.setProperty("stepState", "done")
+            elif idx == current_idx:
+                badge.setProperty("stepState", "active")
+                badge.setText(str(num))
+                label.setProperty("stepState", "active")
+            else:
+                badge.setProperty("stepState", "pending")
+                badge.setText(str(num))
+                label.setProperty("stepState", "pending")
+
+            badge.style().unpolish(badge)
+            badge.style().polish(badge)
+            label.style().unpolish(label)
+            label.style().polish(label)
+
+    @staticmethod
+    def _format_transfer_route(direction, src_paths, dest_path) -> str:
+        if len(src_paths) == 1:
+            src_display = os.path.basename(src_paths[0].rstrip("/\\")) or src_paths[0]
+        else:
+            src_display = f"{len(src_paths)} selected item(s)"
+
+        dest_display = dest_path
+        if len(dest_display) > 42:
+            dest_display = dest_display[:20] + "..." + dest_display[-18:]
+
+        dir_str = "Phone ➔ PC" if direction == "phone_to_pc" else "PC ➔ Phone"
+        return f"{src_display}  •  {dir_str}\nTo: {dest_display}"
+
     def handle_conflicts_found(self, count):
-        """Slot for TransferCoordinator.conflicts_found. Runs on the GUI
-        thread (Qt auto-connects cross-thread signals as queued), shows a
-        blocking dialog, then unblocks the coordinator's worker thread via
-        resolve_conflict()."""
         mode = ConflictDialog.ask(count, self.is_dark_mode, self)
         if self.active_coordinator:
             self.active_coordinator.resolve_conflict(mode)
@@ -1423,15 +1835,13 @@ class MainWindow(QMainWindow):
         if paused:
             self.transfer_pause_btn.setText("Resume")
             self.transfer_pause_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("play", self.is_dark_mode), QSize(13, 13))))
-            self.transfer_details.setText("Paused \u2014 tap Resume to continue.")
+            self.transfer_details.setText("Paused — tap Resume to continue.")
         else:
             self.transfer_pause_btn.setText("Pause")
             self.transfer_pause_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("pause", self.is_dark_mode), QSize(13, 13))))
 
     @staticmethod
     def _format_speed(speed_mbs: float) -> str:
-        """Adaptive speed formatting: KB/s for slow transfers, GB/s once
-        it's fast enough that MB/s stops being readable at a glance."""
         if speed_mbs <= 0:
             return "-- MB/s"
         if speed_mbs < 1:
@@ -1442,7 +1852,6 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _format_eta(eta_seconds: float) -> str:
-        """Human-readable remaining time, e.g. '2m 14s left'."""
         if eta_seconds <= 0:
             return "calculating..."
         eta_seconds = int(round(eta_seconds))
@@ -1481,7 +1890,6 @@ class MainWindow(QMainWindow):
         self.transfer_pause_btn.setEnabled(False)
 
     def on_transfer_finished(self, success, message):
-        # Log to history before clearing context.
         duration = time.time() - self._transfer_start_time if self._transfer_start_time else 0
         coordinator = self.active_coordinator
         if coordinator is not None:
@@ -1498,8 +1906,8 @@ class MainWindow(QMainWindow):
         self.active_coordinator = None
         self.history_btn.setEnabled(True)
         self.settings_btn.setEnabled(True)
+        self.staged_items.clear()
         
-        # Display Status Result View
         page = QWidget()
         outer_layout = QVBoxLayout(page)
         outer_layout.setContentsMargins(40, 40, 40, 40)
@@ -1540,82 +1948,28 @@ class MainWindow(QMainWindow):
         self._tag_theme(page)
 
     def return_to_dashboard(self):
-        # Defensive backstop: Settings/History can no longer be entered
-        # while a transfer is active (see show_settings_page), so this
-        # should never actually fire mid-transfer -- but if it somehow does,
-        # don't resume polling or rebuild the dashboard out from under a
-        # still-running TransferCoordinator (the original real-device bug).
         if self.active_coordinator is not None:
             return
         self.check_timer.start(1500)
         self.show_onboarding_or_dashboard()
 
-    # Pre-packaged Backup Triggers
-    def trigger_media_backup(self):
-        dest = self.config["backup_destination"]
-        src_paths = [
-            "/sdcard/DCIM",
-            "/sdcard/Pictures",
-            "/sdcard/Movies"
-        ]
-        self.start_transfer_ui("phone_to_pc", "copy", src_paths, dest)
+    def get_truncated_dest_path(self) -> str:
+        path = self.config["backup_destination"]
+        if len(path) > 42:
+            return path[:20] + "..." + path[-20:]
+        return path
 
-    def trigger_android_backup(self):
-        dest = self.config["backup_destination"]
-        src_paths = ["/sdcard/Android"]
-        self.start_transfer_ui("phone_to_pc", "copy", src_paths, dest)
-
-    def trigger_photos_backup(self):
-        dest = self.config["backup_destination"]
-        src_paths = ["/sdcard/DCIM", "/sdcard/Pictures"]
-        self.start_transfer_ui("phone_to_pc", "copy", src_paths, dest, extensions=PHOTO_EXTENSIONS)
-
-    def trigger_videos_backup(self):
-        dest = self.config["backup_destination"]
-        src_paths = ["/sdcard/DCIM", "/sdcard/Movies"]
-        self.start_transfer_ui("phone_to_pc", "copy", src_paths, dest, extensions=VIDEO_EXTENSIONS)
-
-    def trigger_custom_pull(self):
-        # FIX (real-device report): this previously ignored its own button
-        # label entirely and silently pulled a hardcoded /sdcard/Download
-        # every time. Now genuinely lets the user browse the phone and pick
-        # specific files/folders via PhoneBrowserDialog, then choose Copy vs
-        # Move via CopyMoveDialog (Move was previously unreachable from any
-        # UI path despite being fully implemented in TransferCoordinator).
-        if self.active_coordinator:
-            return
-        selected = PhoneBrowserDialog.ask(self.adb_manager, self.is_dark_mode, self)
-        if not selected:
-            return
-        mode = CopyMoveDialog.ask(len(selected), self.is_dark_mode, self)
-        if not mode:
-            return
-        dest = self.config["backup_destination"]
-        self.start_transfer_ui("phone_to_pc", mode, selected, dest)
-
-    def trigger_custom_push(self):
-        # FIX (real-device report: "where is the option to copy/move from PC
-        # to phone?"): previously the only PC-to-phone path was implicit
-        # drag-and-drop, always hardcoded to Copy. This is the explicit,
-        # discoverable entry point, with the same Copy/Move choice as Pull
-        # Custom Files. Destination stays /sdcard/Download to match what
-        # drag-and-drop already does -- a phone-side destination *folder*
-        # picker is a reasonable future addition but is a separate, bigger
-        # piece of work than this bug-fix pass.
-        if self.active_coordinator:
-            return
-        files, _ = QFileDialog.getOpenFileNames(self, "Select Files to Push to Phone")
-        if not files:
-            return
-        mode = CopyMoveDialog.ask(len(files), self.is_dark_mode, self)
-        if not mode:
-            return
-        dest = "/sdcard/Download"
-        self.start_transfer_ui("pc_to_phone", mode, files, dest)
-
-    def handle_drag_dropped_files(self, paths):
-        dest = "/sdcard/Download"
-        self.start_transfer_ui("pc_to_phone", "copy", paths, dest)
+    def change_backup_destination(self):
+        new_dir = QFileDialog.getExistingDirectory(
+            self, 
+            "Select Backup Destination Folder", 
+            self.config["backup_destination"]
+        )
+        if new_dir:
+            self.config["backup_destination"] = os.path.abspath(new_dir)
+            self.save_config()
+            if hasattr(self, "settings_dest_label"):
+                self.settings_dest_label.setText(self.get_truncated_dest_path())
 
 
 if __name__ == "__main__":

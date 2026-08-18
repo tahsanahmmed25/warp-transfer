@@ -344,6 +344,7 @@ class TransferCoordinator(QThread):
     # Overall progress updates
     # current_files, total_files, percent, speed_mbs, eta_seconds, current_file_name
     progress_updated = pyqtSignal(int, int, float, float, float, str)
+    stage_changed = pyqtSignal(str, str)  # stage_id, stage_description ('indexing', 'setup', 'streaming', 'verifying')
     transfer_finished = pyqtSignal(bool, str)  # success, message
     paused_changed = pyqtSignal(bool)
     # Emitted once, pre-transfer, when conflict_mode == "ask" and one or more
@@ -432,6 +433,7 @@ class TransferCoordinator(QThread):
     def run(self):
         self.running = True
         self.start_time = time.time()
+        self.stage_changed.emit("indexing", "Scanning files and calculating sizes...")
         self.emit_progress("Scanning files...", 0)
 
         # 1. Scan files to transfer (extension filter applied inline)
@@ -454,6 +456,7 @@ class TransferCoordinator(QThread):
                 original_groups.setdefault(it.batch_key, []).append(it)
 
         # 2. Conflict detection & resolution
+        self.stage_changed.emit("setup", "Setting up transfer channels and checking conflicts...")
         items_to_transfer = self._resolve_conflicts(items_to_transfer)
         if items_to_transfer is None:
             # User cancelled from the conflict dialog.
@@ -486,6 +489,7 @@ class TransferCoordinator(QThread):
             worker_count = 4 if self.total_files > 3 or self.total_bytes > 50 * 1024 * 1024 else 1
 
         # 4. Launch workers
+        self.stage_changed.emit("streaming", "Transferring files...")
         for _ in range(worker_count):
             w = Worker(self.adb_manager, self.direction, self.transfer_queue, self, self.throttle_kbps)
             w.file_completed.connect(self.on_file_completed)
@@ -497,24 +501,8 @@ class TransferCoordinator(QThread):
             w.start()
 
         # 5. Wait for all items to complete or cancel
-        # NOTE: queue.Queue.all_tasks_done is a threading.Condition object,
-        # not a boolean flag. "not self.transfer_queue.all_tasks_done" is
-        # ALWAYS False (Condition objects are truthy by default, having no
-        # __bool__/__len__ override) -- this made the loop below exit
-        # immediately after the workers were started, which then called
-        # w.stop() on every worker before they'd meaningfully processed the
-        # queue, breaking real transfers. Track completion using the
-        # processed-item count instead, which is consistent with how
-        # progress/speed is already computed from copied_bytes elsewhere.
-        # Batch completions bump copied_files by a whole directory's file
-        # count at once (see on_batch_completed), so this condition holds
-        # correctly whether files complete individually or in a batch.
         while self.running and (self.copied_files + len(self.errors)) < self.total_files:
             if not self.paused:
-                # Combine confirmed completions with any batches currently
-                # in-flight (live estimate) -- FIX for progress sitting at
-                # 0% for the entire duration of a large batched backup. See
-                # Worker._process_batch / on_batch_progress.
                 estimated_files = self.copied_files + sum(self._live_batch_estimates.values())
                 estimated_files = min(estimated_files, self.total_files)
                 elapsed = time.time() - self.start_time
@@ -535,6 +523,7 @@ class TransferCoordinator(QThread):
             return
 
         # 6. Verification Phase
+        self.stage_changed.emit("verifying", "Verifying file integrity...")
         self.emit_progress("Verifying file integrity...", 99)
         verification_passed = self.verify_integrity(items_to_transfer)
 

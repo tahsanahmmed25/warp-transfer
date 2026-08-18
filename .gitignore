@@ -17,3 +17,5 @@ bin/
 warp_transfer_config.json
 *.log
 Website/
+.session_*.txt
+*debug*.png

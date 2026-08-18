@@ -712,4 +712,363 @@ QTabBar::tab[theme="light"]:selected {
 QTabBar::tab[theme="light"]:hover:!selected {
     color: #1C1C1E;
 }
+
+/* Direction Segmented Bar */
+#DirectionSegmentContainer {
+    border-radius: 12px;
+    padding: 3px;
+}
+#DirectionSegmentContainer[theme="dark"] {
+    background-color: #121216;
+    border: 1px solid #23232A;
+}
+#DirectionSegmentContainer[theme="light"] {
+    background-color: #EAEAEE;
+    border: 1px solid #DCDCE2;
+}
+
+#DirectionSegmentBtn {
+    border-radius: 9px;
+    padding: 7px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    background-color: transparent;
+}
+#DirectionSegmentBtn[theme="dark"] {
+    color: #9C9CA3;
+}
+#DirectionSegmentBtn[theme="dark"]:hover {
+    color: #F2F2F7;
+    background-color: rgba(255, 255, 255, 0.04);
+}
+#DirectionSegmentBtn[theme="dark"][active="true"] {
+    background-color: #1F1F26;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    color: #D4AF37;
+}
+#DirectionSegmentBtn[theme="light"] {
+    color: #6E6E76;
+}
+#DirectionSegmentBtn[theme="light"]:hover {
+    color: #1C1C1E;
+    background-color: rgba(0, 0, 0, 0.04);
+}
+#DirectionSegmentBtn[theme="light"][active="true"] {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(184, 134, 11, 0.35);
+    color: #B8860B;
+}
+
+#DirectionSwapBtn {
+    border-radius: 9px;
+    padding: 6px 10px;
+    background-color: transparent;
+    border: 1px solid transparent;
+    font-weight: 700;
+    font-size: 14px;
+}
+#DirectionSwapBtn[theme="dark"] {
+    color: #D4AF37;
+}
+#DirectionSwapBtn[theme="dark"]:hover {
+    background-color: rgba(212, 175, 55, 0.15);
+    border-color: rgba(212, 175, 55, 0.3);
+}
+#DirectionSwapBtn[theme="light"] {
+    color: #B8860B;
+}
+#DirectionSwapBtn[theme="light"]:hover {
+    background-color: rgba(184, 134, 11, 0.12);
+    border-color: rgba(184, 134, 11, 0.25);
+}
+
+/* Two-Column Split Layout */
+#SplitColumnCard {
+    border-radius: 14px;
+}
+#SplitColumnCard[theme="dark"] {
+    background-color: #16161B;
+    border: 1px solid #23232C;
+}
+#SplitColumnCard[theme="light"] {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5EA;
+}
+
+#ColumnRoleBadge {
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+#ColumnRoleBadge[roleType="source"][theme="dark"] {
+    background-color: rgba(212, 175, 55, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    color: #D4AF37;
+}
+#ColumnRoleBadge[roleType="source"][theme="light"] {
+    background-color: rgba(184, 134, 11, 0.12);
+    border: 1px solid rgba(184, 134, 11, 0.30);
+    color: #B8860B;
+}
+#ColumnRoleBadge[roleType="dest"][theme="dark"] {
+    background-color: rgba(52, 199, 89, 0.12);
+    border: 1px solid rgba(52, 199, 89, 0.35);
+    color: #34C759;
+}
+#ColumnRoleBadge[roleType="dest"][theme="light"] {
+    background-color: rgba(36, 138, 61, 0.10);
+    border: 1px solid rgba(36, 138, 61, 0.30);
+    color: #248A3D;
+}
+
+#ColumnHeaderTitle {
+    font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+}
+#ColumnHeaderTitle[theme="dark"] {
+    color: #FFFFFF;
+}
+#ColumnHeaderTitle[theme="light"] {
+    color: #1C1C1E;
+}
+
+/* Staged File Item Card */
+#StagedFileItemCard {
+    border-radius: 9px;
+    border: 1px solid transparent;
+}
+#StagedFileItemCard[theme="dark"] {
+    background-color: #1D1D24;
+    border-color: #282834;
+}
+#StagedFileItemCard[theme="dark"]:hover {
+    background-color: #23232C;
+    border-color: #383848;
+}
+#StagedFileItemCard[theme="light"] {
+    background-color: #F7F7FA;
+    border-color: #E5E5EA;
+}
+#StagedFileItemCard[theme="light"]:hover {
+    background-color: #EFEFF4;
+    border-color: #D1D1D6;
+}
+
+#StagedFileName {
+    font-weight: 600;
+    font-size: 12px;
+}
+#StagedFileName[theme="dark"] {
+    color: #F2F2F7;
+}
+#StagedFileName[theme="light"] {
+    color: #1C1C1E;
+}
+
+#StagedFileSize {
+    font-size: 11px;
+    color: #8E8E93;
+}
+
+#StagedFileRemoveBtn {
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-weight: 700;
+    font-size: 12px;
+    color: #8E8E93;
+}
+#StagedFileRemoveBtn:hover {
+    background-color: rgba(255, 69, 58, 0.18);
+    color: #FF453A;
+}
+
+#StagingSummaryPill {
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+#StagingSummaryPill[theme="dark"] {
+    background-color: rgba(212, 175, 55, 0.10);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    color: #D4AF37;
+}
+#StagingSummaryPill[theme="light"] {
+    background-color: rgba(184, 134, 11, 0.08);
+    border: 1px solid rgba(184, 134, 11, 0.20);
+    color: #B8860B;
+}
+
+/* Destination Folder Quick Chips */
+#DestQuickChip {
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+#DestQuickChip[theme="dark"] {
+    background-color: #1F1F26;
+    border: 1px solid #2C2C38;
+    color: #C7C7CC;
+}
+#DestQuickChip[theme="dark"]:hover {
+    background-color: #272732;
+    border-color: #D4AF37;
+    color: #F2F2F7;
+}
+#DestQuickChip[theme="dark"][active="true"] {
+    background-color: rgba(212, 175, 55, 0.16);
+    border: 1px solid #D4AF37;
+    color: #D4AF37;
+}
+#DestQuickChip[theme="light"] {
+    background-color: #F2F2F7;
+    border: 1px solid #E1E1E6;
+    color: #48484A;
+}
+#DestQuickChip[theme="light"]:hover {
+    background-color: #EAEAEE;
+    border-color: #B8860B;
+    color: #1C1C1E;
+}
+#DestQuickChip[theme="light"][active="true"] {
+    background-color: rgba(184, 134, 11, 0.12);
+    border: 1px solid #B8860B;
+    color: #B8860B;
+}
+
+/* Mode Segment Buttons (Copy / Move) */
+#ModeSegmentBtn {
+    border-radius: 9px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+}
+#ModeSegmentBtn[theme="dark"] {
+    background-color: #1B1B22;
+    border: 1px solid #2A2A36;
+    color: #9C9CA3;
+}
+#ModeSegmentBtn[theme="dark"]:hover {
+    background-color: #242430;
+    color: #F2F2F7;
+}
+#ModeSegmentBtn[theme="dark"]:checked {
+    background-color: rgba(212, 175, 55, 0.18);
+    border: 1px solid #D4AF37;
+    color: #F0D68A;
+}
+#ModeSegmentBtn[theme="light"] {
+    background-color: #F2F2F7;
+    border: 1px solid #DCDCE2;
+    color: #6E6E76;
+}
+#ModeSegmentBtn[theme="light"]:hover {
+    background-color: #E8E8EE;
+    color: #1C1C1E;
+}
+#ModeSegmentBtn[theme="light"]:checked {
+    background-color: rgba(184, 134, 11, 0.12);
+    border: 1px solid #B8860B;
+    color: #8B6508;
+}
+
+/* 4-Stage Stepper for Progress Screen */
+#StepperContainer {
+    border-radius: 14px;
+    padding: 12px 16px;
+}
+#StepperContainer[theme="dark"] {
+    background-color: #16161B;
+    border: 1px solid #23232C;
+}
+#StepperContainer[theme="light"] {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5EA;
+}
+
+#StepBadge {
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 11px;
+    min-width: 28px;
+    max-width: 28px;
+    min-height: 28px;
+    max-height: 28px;
+}
+#StepBadge[stepState="pending"][theme="dark"] {
+    background-color: #202028;
+    border: 1px solid #30303C;
+    color: #6E6E76;
+}
+#StepBadge[stepState="pending"][theme="light"] {
+    background-color: #E5E5EA;
+    border: 1px solid #D1D1D6;
+    color: #8E8E93;
+}
+#StepBadge[stepState="active"][theme="dark"] {
+    background-color: rgba(212, 175, 55, 0.22);
+    border: 2px solid #D4AF37;
+    color: #D4AF37;
+}
+#StepBadge[stepState="active"][theme="light"] {
+    background-color: rgba(184, 134, 11, 0.18);
+    border: 2px solid #B8860B;
+    color: #B8860B;
+}
+#StepBadge[stepState="done"][theme="dark"] {
+    background-color: rgba(52, 199, 89, 0.18);
+    border: 1px solid #34C759;
+    color: #34C759;
+}
+#StepBadge[stepState="done"][theme="light"] {
+    background-color: rgba(36, 138, 61, 0.14);
+    border: 1px solid #248A3D;
+    color: #248A3D;
+}
+
+#StepLabel[stepState="pending"][theme="dark"] {
+    color: #6E6E76;
+    font-size: 11px;
+    font-weight: 600;
+}
+#StepLabel[stepState="pending"][theme="light"] {
+    color: #8E8E93;
+    font-size: 11px;
+    font-weight: 600;
+}
+#StepLabel[stepState="active"][theme="dark"] {
+    color: #D4AF37;
+    font-size: 11px;
+    font-weight: 700;
+}
+#StepLabel[stepState="active"][theme="light"] {
+    color: #B8860B;
+    font-size: 11px;
+    font-weight: 700;
+}
+#StepLabel[stepState="done"][theme="dark"] {
+    color: #34C759;
+    font-size: 11px;
+    font-weight: 600;
+}
+#StepLabel[stepState="done"][theme="light"] {
+    color: #248A3D;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+#StepConnector[theme="dark"] {
+    background-color: #2C2C38;
+}
+#StepConnector[theme="light"] {
+    background-color: #DCDCE2;
+}
 """
+
