@@ -1,6 +1,6 @@
 ; Inno Setup Script for Warp Transfer Desktop Client (Local User Installation)
 #define MyAppName "Warp Transfer"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.1"
 #define MyAppPublisher "Tahsan Ahmmed"
 #define MyAppURL "https://github.com/tahsanahmmed25/warp-transfer"
 #define MyAppExeName "Warp-Transfer.exe"
