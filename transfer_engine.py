@@ -528,7 +528,10 @@ class TransferCoordinator(QThread):
         verification_passed = self.verify_integrity(items_to_transfer)
 
         if not verification_passed:
-            self.transfer_finished.emit(False, "Integrity check failed. Some files were not copied correctly. Nothing was deleted.")
+            err_msg = "Integrity check failed. Some files were not copied correctly. Nothing was deleted."
+            if self.errors:
+                err_msg = f"Integrity check failed ({len(self.errors)} issue(s)). Nothing was deleted."
+            self.transfer_finished.emit(False, err_msg)
             return
 
         # 7. Post-verification cleanup (for Move operations)
@@ -842,11 +845,15 @@ class TransferCoordinator(QThread):
         scan_source_items) still verify individually, since there's no
         shared directory grouping to batch by for those.
         """
+    def verify_integrity(self, items: list) -> bool:
+        """Verifies file existence and sizes match between source and destination."""
         if self.direction == "phone_to_pc":
             for item in items:
                 if not os.path.exists(item.dest):
+                    self.errors.append(f"Missing destination file on PC: {item.dest}")
                     return False
                 if os.path.getsize(item.dest) != item.size:
+                    self.errors.append(f"Size mismatch for {item.dest}: expected {item.size} bytes, got {os.path.getsize(item.dest)} bytes")
                     return False
             return True
 
@@ -859,35 +866,67 @@ class TransferCoordinator(QThread):
             else:
                 individuals.append(item)
 
+        actual_sizes = {}
         if grouped:
             android_dir = self.dest_path.rstrip("/")
             find_cmd = ["shell", f"find '{android_dir}' -type f -print0 | xargs -0 stat -c '%s|%n'"]
             code, stdout, _ = self.adb_manager.run_adb_cmd(find_cmd)
-            if code != 0:
-                return False
-            actual_sizes = {}
-            for line in (stdout or "").splitlines():
-                if "|" in line:
-                    size_str, _, path = line.partition("|")
-                    try:
-                        actual_sizes[path.strip()] = int(size_str)
-                    except ValueError:
-                        continue
+            if code == 0 and stdout:
+                for line in stdout.splitlines():
+                    if "|" in line:
+                        size_str, _, path = line.partition("|")
+                        try:
+                            clean_path = path.strip().replace("\\", "/")
+                            size_val = int(size_str)
+                            actual_sizes[clean_path] = size_val
+                            # Handle /sdcard <-> /storage/emulated/0 symlink parity
+                            if clean_path.startswith("/storage/emulated/0/"):
+                                actual_sizes["/sdcard/" + clean_path[len("/storage/emulated/0/"):].lstrip("/")] = size_val
+                            elif clean_path.startswith("/sdcard/"):
+                                actual_sizes["/storage/emulated/0/" + clean_path[len("/sdcard/"):].lstrip("/")] = size_val
+                        except ValueError:
+                            continue
+
+            # Verify grouped items
             for group_items in grouped.values():
                 for item in group_items:
                     android_dest = item.dest.replace("\\", "/")
-                    if actual_sizes.get(android_dest) != item.size:
+                    size = actual_sizes.get(android_dest)
+                    if size is None:
+                        # Normalize path and check again
+                        norm_dest = android_dest
+                        if norm_dest.startswith("/sdcard/"):
+                            norm_dest = "/storage/emulated/0/" + norm_dest[len("/sdcard/"):].lstrip("/")
+                        elif norm_dest.startswith("/storage/emulated/0/"):
+                            norm_dest = "/sdcard/" + norm_dest[len("/storage/emulated/0/"):].lstrip("/")
+                        size = actual_sizes.get(norm_dest)
+
+                    if size is None:
+                        # Fallback to direct stat query before failing
+                        code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{android_dest}'"])
+                        if code == 0 and stdout:
+                            try:
+                                size = int(stdout.strip())
+                            except ValueError:
+                                size = None
+
+                    if size != item.size:
+                        self.errors.append(f"Integrity failure on phone for {android_dest}: expected {item.size} bytes, got {size}")
                         return False
 
         for item in individuals:
-            code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{item.dest}'"])
+            android_dest = item.dest.replace("\\", "/")
+            code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{android_dest}'"])
             if code != 0:
+                self.errors.append(f"Missing file on phone: {android_dest}")
                 return False
             try:
                 android_size = int(stdout.strip())
                 if android_size != item.size:
+                    self.errors.append(f"Size mismatch on phone for {android_dest}: expected {item.size} bytes, got {android_size} bytes")
                     return False
             except ValueError:
+                self.errors.append(f"Could not parse size for {android_dest}")
                 return False
         return True
 

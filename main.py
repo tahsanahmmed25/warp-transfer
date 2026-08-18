@@ -7,7 +7,7 @@ import time
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QPushButton, QStackedWidget, 
                              QProgressBar, QFileDialog, QGraphicsDropShadowEffect,
-                             QGraphicsOpacityEffect, QScrollArea)
+                             QGraphicsOpacityEffect, QScrollArea, QDialog, QTextEdit)
 from PyQt6.QtCore import Qt, QSize, QTimer, QPoint, QPropertyAnimation, QRect, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QPixmap, QPainter, QDragEnterEvent, QDropEvent
 from PyQt6.QtSvg import QSvgRenderer
@@ -1755,6 +1755,9 @@ class MainWindow(QMainWindow):
         self._transfer_context = {
             "direction": direction,
             "operation_type": op_type,
+            "src_paths": list(src_paths),
+            "dest_path": dest_path,
+            "extensions": extensions,
             "device_name": self.adb_manager.current_device,
         }
         
@@ -1891,7 +1894,10 @@ class MainWindow(QMainWindow):
     def on_transfer_finished(self, success, message):
         duration = time.time() - self._transfer_start_time if self._transfer_start_time else 0
         coordinator = self.active_coordinator
+        errors_list = []
         if coordinator is not None:
+            if hasattr(coordinator, "errors"):
+                errors_list = list(coordinator.errors)
             history_manager.add_entry(
                 direction=self._transfer_context.get("direction", ""),
                 operation_type=self._transfer_context.get("operation_type", ""),
@@ -1902,10 +1908,24 @@ class MainWindow(QMainWindow):
                 duration_seconds=duration,
                 device_name=self._transfer_context.get("device_name", ""),
             )
+        
+        # Save failed context for one-click Resume / Retry
+        if not success:
+            self._last_failed_context = {
+                "direction": self._transfer_context.get("direction", "phone_to_pc"),
+                "operation_type": self._transfer_context.get("operation_type", "copy"),
+                "src_paths": list(self._transfer_context.get("src_paths", [])),
+                "dest_path": self._transfer_context.get("dest_path", ""),
+                "extensions": self._transfer_context.get("extensions", None),
+                "errors": errors_list,
+            }
+        else:
+            self._last_failed_context = None
+            self.staged_items.clear()
+
         self.active_coordinator = None
         self.history_btn.setEnabled(True)
         self.settings_btn.setEnabled(True)
-        self.staged_items.clear()
         
         page = QWidget()
         outer_layout = QVBoxLayout(page)
@@ -1915,14 +1935,14 @@ class MainWindow(QMainWindow):
         card = QWidget()
         card.setObjectName("CardContainer")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(20)
+        layout.setContentsMargins(36, 32, 36, 32)
+        layout.setSpacing(18)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         icon_badge = make_icon_badge("check" if success else "alert", self.is_dark_mode, size=72, icon_size=40)
         layout.addWidget(icon_badge, 0, Qt.AlignmentFlag.AlignCenter)
         
-        title = QLabel("Transfer Succeeded!" if success else "Transfer Failed", card)
+        title = QLabel("Transfer Succeeded!" if success else "Transfer Incomplete", card)
         title.setObjectName("HeaderLabel")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
@@ -1933,11 +1953,42 @@ class MainWindow(QMainWindow):
         desc.setWordWrap(True)
         layout.addWidget(desc)
         
-        done_btn = QPushButton("Done", card)
-        done_btn.setObjectName("PrimaryButton")
-        done_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        done_btn.clicked.connect(self.return_to_dashboard)
-        layout.addWidget(done_btn)
+        if success:
+            done_btn = QPushButton("Done", card)
+            done_btn.setObjectName("PrimaryButton")
+            done_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            done_btn.clicked.connect(self.return_to_dashboard)
+            layout.addWidget(done_btn)
+        else:
+            # Multi-action row for failure (Resume/Retry, Error Details, Return to Dashboard)
+            actions_box = QVBoxLayout()
+            actions_box.setSpacing(10)
+            
+            # Primary Action: Resume / Retry
+            resume_btn = QPushButton("Resume / Retry Transfer", card)
+            resume_btn.setObjectName("PrimaryButton")
+            resume_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            resume_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("zap", self.is_dark_mode), QSize(14, 14))))
+            resume_btn.clicked.connect(self.resume_failed_transfer)
+            actions_box.addWidget(resume_btn)
+            
+            # Secondary Action Row
+            sec_row = QHBoxLayout()
+            sec_row.setSpacing(10)
+            
+            if errors_list:
+                details_btn = QPushButton("View Error Details", card)
+                details_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                details_btn.clicked.connect(lambda: self.show_transfer_error_dialog(errors_list))
+                sec_row.addWidget(details_btn)
+            
+            back_btn = QPushButton("Back to Dashboard", card)
+            back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            back_btn.clicked.connect(self.return_to_dashboard)
+            sec_row.addWidget(back_btn)
+            
+            actions_box.addLayout(sec_row)
+            layout.addLayout(actions_box)
 
         outer_layout.addWidget(card)
         add_shadow(card, blur=28, y_offset=8, alpha=70)
@@ -1945,6 +1996,56 @@ class MainWindow(QMainWindow):
         idx = self.stacked_pages.addWidget(page)
         self._fade_transition(idx)
         self._tag_theme(page)
+
+    def resume_failed_transfer(self):
+        """Resumes the previous transfer with existing staged sources."""
+        if not hasattr(self, "_last_failed_context") or not self._last_failed_context:
+            self.return_to_dashboard()
+            return
+        ctx = self._last_failed_context
+        self.start_transfer_ui(
+            direction=ctx.get("direction", "phone_to_pc"),
+            op_type=ctx.get("operation_type", "copy"),
+            src_paths=ctx.get("src_paths", []),
+            dest_path=ctx.get("dest_path", ""),
+            extensions=ctx.get("extensions", None),
+        )
+
+    def show_transfer_error_dialog(self, errors: list):
+        """Displays transfer error details and failure logs."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Transfer Error Details")
+        dialog.setMinimumSize(540, 340)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
+        
+        title = QLabel("Transfer Error Details", dialog)
+        title.setObjectName("HeaderLabel")
+        layout.addWidget(title)
+        
+        desc = QLabel(f"{len(errors)} error(s) were captured by the transfer coordinator:", dialog)
+        desc.setObjectName("SubHeaderLabel")
+        layout.addWidget(desc)
+        
+        log_text = QTextEdit(dialog)
+        log_text.setReadOnly(True)
+        log_text.setPlainText("\n".join(errors) if errors else "No detailed error lines recorded.")
+        log_text.setStyleSheet("font-family: Consolas, monospace; font-size: 11px; padding: 10px; border-radius: 8px;")
+        layout.addWidget(log_text, 1)
+        
+        btn_box = QHBoxLayout()
+        btn_box.addStretch()
+        close_btn = QPushButton("Close", dialog)
+        close_btn.setObjectName("PrimaryButton")
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.clicked.connect(dialog.accept)
+        btn_box.addWidget(close_btn)
+        layout.addLayout(btn_box)
+        
+        self._tag_theme(dialog)
+        dialog.exec()
 
     def return_to_dashboard(self):
         if self.active_coordinator is not None:
