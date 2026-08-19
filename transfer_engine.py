@@ -1,6 +1,7 @@
 # Multithreaded Parallel Transfer Engine wrapping ADB subprocesses for Warp Transfer
 
 import os
+import posixpath
 import sys
 import shutil
 import time
@@ -184,11 +185,13 @@ class Worker(QThread):
         try:
             if self.direction == "phone_to_pc":
                 os.makedirs(batch.dest_root, exist_ok=True)
-                cmd = [self.adb_manager.adb_path, "pull", batch.src_dir, batch.dest_root]
+                clean_src = batch.src_dir.rstrip("/\\")
+                cmd = [self.adb_manager.adb_path, "pull", clean_src, batch.dest_root]
             else:  # pc_to_phone
-                android_dest_root = batch.dest_root.replace("\\", "/")
+                android_dest_root = batch.dest_root.rstrip("/\\").replace("\\", "/")
                 self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{android_dest_root}'"])
-                cmd = [self.adb_manager.adb_path, "push", batch.src_dir, android_dest_root]
+                clean_src = os.path.abspath(batch.src_dir.rstrip("/\\"))
+                cmd = [self.adb_manager.adb_path, "push", clean_src, android_dest_root]
 
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=creationflags
@@ -341,9 +344,9 @@ class Worker(QThread):
 
 
 class TransferCoordinator(QThread):
-    # Overall progress updates
-    # current_files, total_files, percent, speed_mbs, eta_seconds, current_file_name
-    progress_updated = pyqtSignal(int, int, float, float, float, str)
+    # Overall progress updates:
+    # current_files, total_files, current_bytes, total_bytes, percent, speed_mbs, eta_seconds, current_file_name
+    progress_updated = pyqtSignal(int, int, int, int, float, float, float, str)
     stage_changed = pyqtSignal(str, str)  # stage_id, stage_description ('indexing', 'setup', 'streaming', 'verifying')
     transfer_finished = pyqtSignal(bool, str)  # success, message
     paused_changed = pyqtSignal(bool)
@@ -508,9 +511,12 @@ class TransferCoordinator(QThread):
                 elapsed = time.time() - self.start_time
                 speed = (self.copied_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
                 eta = self._calc_eta_seconds(speed)
-                percent = (estimated_files / self.total_files * 100) if self.total_files > 0 else 0
+                percent = (self.copied_bytes / self.total_bytes * 100) if self.total_bytes > 0 else 0
+                if self.total_bytes == 0 and self.total_files > 0:
+                    percent = (estimated_files / self.total_files * 100)
                 self.progress_updated.emit(
-                    estimated_files, self.total_files, percent, speed, eta, "Transferring files..."
+                    estimated_files, self.total_files, self.copied_bytes, self.total_bytes,
+                    percent, speed, eta, "Transferring files..."
                 )
             time.sleep(0.2)
 
@@ -546,7 +552,10 @@ class TransferCoordinator(QThread):
         self.transfer_finished.emit(True, f"Transfer completed and verified successfully!{skip_note}")
 
     def emit_progress(self, message, percent):
-        self.progress_updated.emit(self.copied_files, self.total_files, percent, 0.0, 0.0, message)
+        self.progress_updated.emit(
+            self.copied_files, self.total_files, self.copied_bytes, self.total_bytes,
+            percent, 0.0, 0.0, message
+        )
 
     def on_file_completed(self, path, size):
         self.copied_files += 1
@@ -559,7 +568,8 @@ class TransferCoordinator(QThread):
         percent = (self.copied_bytes / self.total_bytes * 100) if self.total_bytes > 0 else 0
 
         self.progress_updated.emit(
-            self.copied_files, self.total_files, percent, speed, eta, f"Copying {filename}"
+            self.copied_files, self.total_files, self.copied_bytes, self.total_bytes,
+            percent, speed, eta, f"Copying {filename}"
         )
 
     def on_file_error(self, path, error):
@@ -592,7 +602,8 @@ class TransferCoordinator(QThread):
         percent = (self.copied_bytes / self.total_bytes * 100) if self.total_bytes > 0 else 0
 
         self.progress_updated.emit(
-            self.copied_files, self.total_files, percent, speed, eta,
+            self.copied_files, self.total_files, self.copied_bytes, self.total_bytes,
+            percent, speed, eta,
             f"Transferred folder ({file_count} files)"
         )
 
@@ -730,7 +741,8 @@ class TransferCoordinator(QThread):
     def scan_source_items(self) -> list:
         items = []
         if self.direction == "phone_to_pc":
-            for src in self.src_paths:
+            for raw_src in self.src_paths:
+                src = raw_src.rstrip("/\\")
                 # Check if directory or file
                 code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"[ -d '{src}' ] && echo 'dir' || echo 'file'"])
                 is_dir = stdout.strip() == "dir"
@@ -741,29 +753,14 @@ class TransferCoordinator(QThread):
                     find_cmd = ["shell", f"find '{src}' -type f -print0 | xargs -0 stat -c '%s|%n'"]
                     code, stdout, stderr = self.adb_manager.run_adb_cmd(find_cmd)
 
-                    # Defensive None guard: run_adb_cmd's subprocess call can
-                    # in principle still hand back stdout=None (e.g. a
-                    # process-level failure before any output was captured),
-                    # and a bare `.strip()` on that crashes with
-                    # AttributeError. The actual crash seen on real-device
-                    # testing was a cp1252 decode failure now fixed at the
-                    # source in AdbManager.run_adb_cmd (explicit utf-8 +
-                    # errors='replace'), but this guard stays regardless as
-                    # a safety net -- it doesn't mask genuine scan failures,
-                    # since code != 0 or an empty result already falls
-                    # through to the same fallback path below.
                     if code != 0 or not (stdout or "").strip():
                         # Fallback to recursively listing files if find/stat fails
                         code, stdout, stderr = self.adb_manager.run_adb_cmd(["shell", f"ls -R -l '{src}'"])
-                        # Simple parsing for ls -R (basic fallback)
-                        self.errors.append("Fallback scanning not fully implemented or failed.")
+                        self.errors.append(f"Scanning failed for phone folder: {src}")
                         continue
 
-                    # Only tag items with batch_key when no extension filter
-                    # is active -- a batch adb pull/push can't selectively
-                    # include/exclude files by extension mid-stream, so a
-                    # filtered directory must stay on the per-file path.
                     batch_key = src if self.extensions is None else None
+                    parent_dir = posixpath.dirname(src)
 
                     for line in stdout.splitlines():
                         if "|" in line:
@@ -773,8 +770,12 @@ class TransferCoordinator(QThread):
                                 file_path = parts[1].strip()
                                 if self.extensions is not None and not self._matches_extension(file_path):
                                     continue
-                                # Calculate relative path
-                                rel_path = os.path.relpath(file_path, os.path.dirname(src)).replace("/", "\\")
+                                # Calculate relative path from parent directory so root directory is preserved
+                                if parent_dir in ("", "/"):
+                                    rel_path = file_path.lstrip("/")
+                                else:
+                                    rel_path = posixpath.relpath(file_path, parent_dir)
+                                rel_path = rel_path.replace("/", "\\")
                                 dest_file = os.path.join(self.dest_path, rel_path)
                                 items.append(TransferItem(file_path, dest_file, size, batch_key=batch_key))
                             except ValueError:
@@ -782,35 +783,35 @@ class TransferCoordinator(QThread):
                 else:
                     if self.extensions is not None and not self._matches_extension(src):
                         continue
-                    # Single file -- never batched (batch_key stays None; a
-                    # lone file isn't worth a directory-level batch call).
                     code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{src}'"])
                     try:
                         size = int(stdout.strip())
-                        dest_file = os.path.join(self.dest_path, os.path.basename(src))
+                        dest_file = os.path.join(self.dest_path, posixpath.basename(src))
                         items.append(TransferItem(src, dest_file, size))
                     except ValueError:
                         self.errors.append(f"Could not read size of file: {src}")
         else:  # pc_to_phone
-            for src in self.src_paths:
+            for raw_src in self.src_paths:
+                src = os.path.abspath(raw_src.rstrip("/\\"))
+                posix_dest_root = self.dest_path.rstrip("/\\").replace("\\", "/")
                 if os.path.isdir(src):
                     batch_key = src if self.extensions is None else None
+                    src_parent = os.path.dirname(src)
                     for root, _, files in os.walk(src):
                         for file in files:
                             if self.extensions is not None and not self._matches_extension(file):
                                 continue
                             full_path = os.path.join(root, file)
                             size = os.path.getsize(full_path)
-                            # Relative path matching
-                            rel_path = os.path.relpath(full_path, os.path.dirname(src)).replace("\\", "/")
-                            dest_file = (self.dest_path.rstrip("/") + "/" + rel_path).replace("//", "/")
+                            rel_path = os.path.relpath(full_path, src_parent).replace("\\", "/")
+                            dest_file = (posix_dest_root + "/" + rel_path).replace("//", "/")
                             items.append(TransferItem(full_path, dest_file, size, batch_key=batch_key))
                 else:
                     if os.path.exists(src):
                         if self.extensions is not None and not self._matches_extension(src):
                             continue
                         size = os.path.getsize(src)
-                        dest_file = (self.dest_path.rstrip("/") + "/" + os.path.basename(src)).replace("//", "/")
+                        dest_file = (posix_dest_root + "/" + os.path.basename(src)).replace("//", "/")
                         items.append(TransferItem(src, dest_file, size))
         return items
 
@@ -821,39 +822,21 @@ class TransferCoordinator(QThread):
         return ext.lower() in self.extensions
 
     def verify_integrity(self, items: list) -> bool:
-        """Verifies file existence and sizes match between source and destination.
-
-        FIX (found reviewing the batch code ahead of a real Phase 1 speed
-        test): the pc_to_phone branch previously issued one `adb shell stat`
-        subprocess call PER FILE regardless of whether the transfer itself
-        used the batch path -- for a large push (hundreds of files),
-        verification alone could take as long as the batched transfer it
-        was verifying, silently eating most of Phase 1's real speedup for
-        pc_to_phone specifically. (phone_to_pc verification was already
-        cheap -- os.path.exists/getsize are local calls, no subprocess.)
-        An unbatched verification bottleneck would have made any real speed
-        test result misleading regardless of how good the transfer-side
-        batching itself is, so fixing this belongs with the speed-test item.
-
-        Now groups items by their original batch_key (same top-level
-        directory grouping _plan_batches uses for the transfer itself) and
-        verifies ALL of them with ONE `find | xargs stat` call against
-        self.dest_path -- mirroring how scan_source_items already does its
-        own batched stat lookup for scanning -- instead of one subprocess
-        per file. Items with no batch_key (single files, or
-        extension-filtered transfers, which never get a batch_key -- see
-        scan_source_items) still verify individually, since there's no
-        shared directory grouping to batch by for those.
-        """
-    def verify_integrity(self, items: list) -> bool:
         """Verifies file existence and sizes match between source and destination."""
         if self.direction == "phone_to_pc":
             for item in items:
-                if not os.path.exists(item.dest):
-                    self.errors.append(f"Missing destination file on PC: {item.dest}")
-                    return False
-                if os.path.getsize(item.dest) != item.size:
-                    self.errors.append(f"Size mismatch for {item.dest}: expected {item.size} bytes, got {os.path.getsize(item.dest)} bytes")
+                dest = os.path.abspath(item.dest)
+                if not os.path.exists(dest):
+                    # Safety check: check if placed in destination root directly
+                    alt_dest = os.path.join(self.dest_path, os.path.basename(item.dest))
+                    if os.path.exists(alt_dest):
+                        dest = alt_dest
+                    else:
+                        self.errors.append(f"Missing destination file on PC: {dest}")
+                        return False
+                actual_size = os.path.getsize(dest)
+                if actual_size != item.size:
+                    self.errors.append(f"Size mismatch for {dest}: expected {item.size} bytes, got {actual_size} bytes")
                     return False
             return True
 

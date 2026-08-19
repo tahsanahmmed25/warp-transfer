@@ -1713,12 +1713,41 @@ class MainWindow(QMainWindow):
         detail_card = QWidget()
         detail_card.setObjectName("InnerCard")
         detail_layout = QVBoxLayout(detail_card)
-        detail_layout.setContentsMargins(14, 10, 14, 10)
-        self.transfer_details = QLabel("Preparing worker channels...", detail_card)
-        self.transfer_details.setObjectName("TransferDetailLabel")
-        self.transfer_details.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.transfer_details.setWordWrap(True)
-        detail_layout.addWidget(self.transfer_details)
+        detail_layout.setContentsMargins(16, 12, 16, 12)
+        detail_layout.setSpacing(8)
+
+        # Row 1: Data Size & Files Count
+        metrics_row1 = QHBoxLayout()
+        metrics_row1.setSpacing(12)
+        
+        self.metric_size_label = QLabel("Data: 0 B / 0 B (0%)", detail_card)
+        self.metric_size_label.setObjectName("TransferDetailLabel")
+        self.metric_size_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        
+        self.metric_files_label = QLabel("Files: 0 / 0", detail_card)
+        self.metric_files_label.setObjectName("TransferDetailLabel")
+        self.metric_files_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        metrics_row1.addWidget(self.metric_size_label, 1)
+        metrics_row1.addWidget(self.metric_files_label, 1)
+        detail_layout.addLayout(metrics_row1)
+
+        # Row 2: Speed & ETA
+        metrics_row2 = QHBoxLayout()
+        metrics_row2.setSpacing(12)
+        
+        self.metric_speed_label = QLabel("Speed: -- MB/s", detail_card)
+        self.metric_speed_label.setObjectName("TransferDetailLabel")
+        self.metric_speed_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        
+        self.metric_eta_label = QLabel("ETA: calculating...", detail_card)
+        self.metric_eta_label.setObjectName("TransferDetailLabel")
+        self.metric_eta_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        metrics_row2.addWidget(self.metric_speed_label, 1)
+        metrics_row2.addWidget(self.metric_eta_label, 1)
+        detail_layout.addLayout(metrics_row2)
+
         layout.addWidget(detail_card)
 
         # Controls Row
@@ -1837,10 +1866,24 @@ class MainWindow(QMainWindow):
         if paused:
             self.transfer_pause_btn.setText("Resume")
             self.transfer_pause_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("play", self.is_dark_mode), QSize(13, 13))))
-            self.transfer_details.setText("Paused — tap Resume to continue.")
+            self.metric_speed_label.setText("Speed: 0 KB/s")
+            self.metric_eta_label.setText("ETA: Paused")
         else:
             self.transfer_pause_btn.setText("Pause")
             self.transfer_pause_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("pause", self.is_dark_mode), QSize(13, 13))))
+
+    @staticmethod
+    def _format_bytes(bytes_count: int) -> str:
+        if bytes_count <= 0:
+            return "0 B"
+        elif bytes_count < 1024:
+            return f"{bytes_count} B"
+        elif bytes_count < 1024 * 1024:
+            return f"{bytes_count / 1024:.1f} KB"
+        elif bytes_count < 1024 * 1024 * 1024:
+            return f"{bytes_count / (1024 * 1024):.1f} MB"
+        else:
+            return f"{bytes_count / (1024 * 1024 * 1024):.2f} GB"
 
     @staticmethod
     def _format_speed(speed_mbs: float) -> str:
@@ -1865,21 +1908,29 @@ class MainWindow(QMainWindow):
         hours, minutes = divmod(minutes, 60)
         return f"{hours}h {minutes:02d}m left"
 
-    def update_transfer_progress(self, current_files, total_files, percent, speed_mbs, eta_seconds, current_file):
+    def update_transfer_progress(self, current_files, total_files, current_bytes, total_bytes, percent, speed_mbs, eta_seconds, current_file):
         if self.is_paused:
             return
-        if len(current_file) > 50:
-            current_file = current_file[:22] + "..." + current_file[-25:]
+        if len(current_file) > 52:
+            current_file = current_file[:24] + "..." + current_file[-24:]
         self.transfer_file_label.setText(current_file)
         self.transfer_bar.setValue(int(percent))
         
-        if total_files > 0:
-            self.transfer_details.setText(
-                f"{current_files} of {total_files} files ({percent:.1f}%)  •  "
-                f"{self._format_speed(speed_mbs)}  •  {self._format_eta(eta_seconds)}"
-            )
+        if total_bytes > 0:
+            size_str = f"{self._format_bytes(current_bytes)} / {self._format_bytes(total_bytes)} ({percent:.1f}%)"
+        elif total_files > 0:
+            size_str = f"{percent:.1f}%"
         else:
-            self.transfer_details.setText(current_file)
+            size_str = "Calculating..."
+        self.metric_size_label.setText(f"Data: {size_str}")
+
+        if total_files > 0:
+            self.metric_files_label.setText(f"Files: {current_files} / {total_files}")
+        else:
+            self.metric_files_label.setText("Files: scanning...")
+
+        self.metric_speed_label.setText(f"Speed: {self._format_speed(speed_mbs)}")
+        self.metric_eta_label.setText(f"ETA: {self._format_eta(eta_seconds)}")
 
     def cancel_active_transfer(self):
         if self.active_coordinator:
