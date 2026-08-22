@@ -49,13 +49,6 @@ class Worker(QThread):
     # Signals for individual file completion
     file_completed = pyqtSignal(str, int)  # file_path, bytes_copied
     error_occurred = pyqtSignal(str, str)  # file_path, error_message
-    # Signals for whole-directory batch completion/failure (Phase 1 batching)
-    batch_completed = pyqtSignal(object, int, int)  # BatchJob instance, file_count, total_bytes
-    batch_failed = pyqtSignal(object, str)      # BatchJob instance, error_message
-    # Live progress DURING a batch's single subprocess call (fix for "progress
-    # stuck at 0%" -- see _process_batch docstring). Carries the BatchJob
-    # identity plus live files-so-far and bytes-so-far for that specific batch.
-    batch_progress = pyqtSignal(object, int, int)     # BatchJob instance, files_done_estimate, bytes_done_estimate
 
     def __init__(self, adb_manager, direction, queue, coordinator, throttle_kbps=0):
         super().__init__()
@@ -81,15 +74,9 @@ class Worker(QThread):
 
             item = self.queue.get()
             try:
-                if isinstance(item, BatchJob):
-                    self._process_batch(item, creationflags)
-                else:
-                    self._process_single(item, creationflags)
+                self._process_single(item, creationflags)
             except Exception as e:
-                if isinstance(item, BatchJob):
-                    self.batch_failed.emit(item, str(e))
-                else:
-                    self.error_occurred.emit(item.src, str(e))
+                self.error_occurred.emit(item.src, str(e))
             finally:
                 self.queue.task_done()
 
@@ -109,8 +96,10 @@ class Worker(QThread):
             cmd = [self.adb_manager.adb_path, "pull", item.src, item.dest]
         else:  # pc_to_phone
             android_dest_dir = dest_dir.replace("\\", "/")
-            safe_android_dir = android_dest_dir.replace("'", "'\\''")
-            self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{safe_android_dir}'"])
+            if android_dest_dir not in self.coordinator.created_remote_dirs:
+                safe_android_dir = android_dest_dir.replace("'", "'\\''")
+                self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{safe_android_dir}'"])
+                self.coordinator.created_remote_dirs.add(android_dest_dir)
             cmd = [self.adb_manager.adb_path, "push", item.src, item.dest.replace("\\", "/")]
 
         proc = subprocess.Popen(
@@ -118,7 +107,7 @@ class Worker(QThread):
         )
         self._current_proc = proc
         try:
-            stdout, stderr = proc.communicate(timeout=60)
+            stdout, stderr = proc.communicate(timeout=180)
             returncode = proc.returncode
         except subprocess.TimeoutExpired:
             proc.kill()
@@ -132,89 +121,6 @@ class Worker(QThread):
             self.file_completed.emit(item.src, item.size)
         else:
             self.error_occurred.emit(item.src, stderr)
-
-    def _process_batch(self, batch: BatchJob, creationflags):
-        """Pulls/pushes an entire directory in one subprocess call and streams
-        live file & byte estimates continuously for real-time telemetry."""
-        try:
-            if self.direction == "phone_to_pc":
-                os.makedirs(batch.dest_root, exist_ok=True)
-                clean_src = batch.src_dir.rstrip("/\\")
-                cmd = [self.adb_manager.adb_path, "pull", clean_src, batch.dest_root]
-            else:  # pc_to_phone
-                android_dest_root = batch.dest_root.rstrip("/\\").replace("\\", "/")
-                safe_dest_root = android_dest_root.replace("'", "'\\''")
-                self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{safe_dest_root}'"])
-                clean_src = os.path.abspath(batch.src_dir.rstrip("/\\"))
-                cmd = [self.adb_manager.adb_path, "push", clean_src, android_dest_root]
-
-            proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=creationflags
-            )
-            self._current_proc = proc
-
-            poll_interval = 0.15
-            last_poll = 0.0
-            while proc.poll() is None:
-                if not self.running:
-                    proc.terminate()
-                    break
-                now = time.time()
-                if now - last_poll >= poll_interval:
-                    last_poll = now
-                    progress = self._estimate_batch_progress(batch)
-                    if progress is not None:
-                        files_cnt, bytes_cnt = progress
-                        self.batch_progress.emit(batch, files_cnt, bytes_cnt)
-                time.sleep(0.04)
-
-            stdout, stderr = proc.communicate()
-            returncode = proc.returncode
-            self._current_proc = None
-
-            if not self.running:
-                return
-
-            if returncode == 0:
-                self.batch_completed.emit(batch, batch.file_count, batch.total_size)
-            else:
-                self.batch_failed.emit(batch, stderr or "Batch transfer failed.")
-        except Exception as e:
-            self._current_proc = None
-            self.batch_failed.emit(batch, str(e))
-
-    def _estimate_batch_progress(self, batch: BatchJob) -> tuple:
-        """Measures live progress (files and bytes) for a batch mid-transfer."""
-        try:
-            if self.direction == "phone_to_pc":
-                if not os.path.isdir(batch.dest_root):
-                    return (0, 0)
-                count = 0
-                total_bytes = 0
-                for root, _dirs, files in os.walk(batch.dest_root):
-                    count += len(files)
-                    for f in files:
-                        try:
-                            total_bytes += os.path.getsize(os.path.join(root, f))
-                        except Exception:
-                            pass
-                return (min(count, batch.file_count), min(total_bytes, batch.total_size))
-            else:  # pc_to_phone
-                android_dir = batch.dest_root.rstrip("/")
-                safe_dir = android_dir.replace("'", "'\\''")
-                code, stdout, _ = self.adb_manager.run_adb_cmd(
-                    ["shell", f"find '{safe_dir}' -type f | wc -l"], timeout=4
-                )
-                if code != 0 or not stdout:
-                    return None
-                counted_files = min(int((stdout or "0").strip()), batch.file_count)
-                if batch.file_count > 0:
-                    proportional_bytes = int((counted_files / batch.file_count) * batch.total_size)
-                else:
-                    proportional_bytes = 0
-                return (counted_files, min(proportional_bytes, batch.total_size))
-        except Exception:
-            return None
 
     def _copy_throttled(self, item, creationflags):
         """Rate-limited copy path used when the user has set a transfer
@@ -354,12 +260,7 @@ class TransferCoordinator(QThread):
         # re-queued and may all still succeed -- so it shouldn't count toward
         # the run()-loop's (copied_files + len(errors)) < total_files exit
         # condition the way a genuine per-file error does.
-        self.batch_fallback_log = []
-        # Live in-flight batch progress estimates, keyed by id(batch) so
-        # multiple concurrent batches track separately for files and bytes.
-        self._live_batch_file_estimates = {}
-        self._live_batch_byte_estimates = {}
-
+        self.created_remote_dirs = set()
         self._conflict_event = threading.Event()
         self._resolved_conflict_mode = "skip"
 
@@ -402,16 +303,6 @@ class TransferCoordinator(QThread):
                 self.transfer_finished.emit(False, "No files found to transfer.")
             return
 
-        # Snapshot which top-level source directories each item belongs to
-        # BEFORE conflict resolution can remove (skip) or rename items --
-        # _plan_batches() needs this to detect whether a directory's file
-        # set was left fully intact (safe to batch) or altered (must fall
-        # back to per-file transfer for that directory).
-        original_groups = {}
-        for it in items_to_transfer:
-            if it.batch_key:
-                original_groups.setdefault(it.batch_key, []).append(it)
-
         # 2. Conflict detection & resolution
         self.stage_changed.emit("setup", "Setting up transfer channels and checking conflicts...")
         items_to_transfer = self._resolve_conflicts(items_to_transfer)
@@ -428,18 +319,11 @@ class TransferCoordinator(QThread):
         self.total_files = len(items_to_transfer)
         self.total_bytes = sum(item.size for item in items_to_transfer)
 
-        # 2b. Split into whole-directory batch jobs (one adb call per
-        # eligible directory) and individual per-file items (Phase 1 speed
-        # fix -- see _plan_batches for eligibility rules).
-        batch_jobs, individual_items = self._plan_batches(items_to_transfer, original_groups)
-
-        for job in batch_jobs:
-            self.transfer_queue.put(job)
-        for item in individual_items:
+        # Queue all individual files for multi-streamed concurrent transfer
+        for item in items_to_transfer:
             self.transfer_queue.put(item)
 
-        # 3. Determine worker count (throttled transfers stay single-stream so
-        # the configured cap is meaningful instead of being ~4x'd by parallelism)
+        # 3. Determine worker count (throttled transfers stay single-stream)
         if self.throttle_kbps > 0:
             worker_count = 1
         else:
@@ -451,34 +335,25 @@ class TransferCoordinator(QThread):
             w = Worker(self.adb_manager, self.direction, self.transfer_queue, self, self.throttle_kbps)
             w.file_completed.connect(self.on_file_completed)
             w.error_occurred.connect(self.on_file_error)
-            w.batch_completed.connect(self.on_batch_completed)
-            w.batch_failed.connect(self.on_batch_failed)
-            w.batch_progress.connect(self.on_batch_progress)
             self.workers.append(w)
             w.start()
 
         # 5. Wait for all items to complete or cancel with smooth, real-time live telemetry
         while self.running and (self.copied_files + len(self.errors)) < self.total_files:
             if not self.paused:
-                live_files = self.copied_files + sum(self._live_batch_file_estimates.values())
-                live_files = min(live_files, self.total_files)
-
-                live_bytes = self.copied_bytes + sum(self._live_batch_byte_estimates.values())
-                live_bytes = min(live_bytes, self.total_bytes)
-
                 elapsed = max(time.time() - self.start_time, 0.001)
-                speed = (live_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
-                eta = self._calc_eta_seconds(speed, live_bytes)
+                speed = (self.copied_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
+                eta = self._calc_eta_seconds(speed, self.copied_bytes)
                 
                 if self.total_bytes > 0:
-                    percent = (live_bytes / self.total_bytes * 100)
+                    percent = (self.copied_bytes / self.total_bytes * 100)
                 elif self.total_files > 0:
-                    percent = (live_files / self.total_files * 100)
+                    percent = (self.copied_files / self.total_files * 100)
                 else:
                     percent = 0.0
 
                 self.progress_updated.emit(
-                    live_files, self.total_files, live_bytes, self.total_bytes,
+                    self.copied_files, self.total_files, self.copied_bytes, self.total_bytes,
                     percent, speed, eta, "Transferring files..."
                 )
             time.sleep(0.1)
@@ -537,69 +412,6 @@ class TransferCoordinator(QThread):
 
     def on_file_error(self, path, error):
         self.errors.append(f"{path}: {error}")
-
-    def on_batch_progress(self, batch, files_done_estimate, bytes_done_estimate):
-        """Live progress during a batch directory transfer."""
-        self._live_batch_file_estimates[id(batch)] = files_done_estimate
-        self._live_batch_byte_estimates[id(batch)] = bytes_done_estimate
-
-    def on_batch_completed(self, batch, file_count, total_bytes):
-        """Authoritative completion update for a batch directory transfer."""
-        self._live_batch_file_estimates.pop(id(batch), None)
-        self._live_batch_byte_estimates.pop(id(batch), None)
-        self.copied_files += file_count
-        self.copied_bytes += total_bytes
-
-        elapsed = max(time.time() - self.start_time, 0.001)
-        speed = (self.copied_bytes / (1024 * 1024)) / elapsed
-        eta = self._calc_eta_seconds(speed, self.copied_bytes)
-        percent = (self.copied_bytes / self.total_bytes * 100) if self.total_bytes > 0 else 0
-
-        self.progress_updated.emit(
-            self.copied_files, self.total_files, self.copied_bytes, self.total_bytes,
-            percent, speed, eta,
-            f"Transferred folder ({file_count} files)"
-        )
-
-    def on_batch_failed(self, batch: BatchJob, error: str):
-        """Fallback to individual files if whole-batch transfer fails."""
-        self._live_batch_file_estimates.pop(id(batch), None)
-        self._live_batch_byte_estimates.pop(id(batch), None)
-        self.batch_fallback_log.append(
-            f"Batch transfer failed for '{batch.src_dir}' ({batch.file_count} files), "
-            f"falling back to per-file transfer. Batch error: {error}"
-        )
-        for item in batch.member_items:
-            self.transfer_queue.put(item)
-
-    # ---------------------------------------------------------------
-    # Batch planning (Phase 1 speed fix)
-    # ---------------------------------------------------------------
-
-    def _plan_batches(self, items: list, original_groups: dict):
-        """Splits items into batch jobs and individual items."""
-        if self.throttle_kbps > 0:
-            return [], items
-
-        final_groups = {}
-        individuals = []
-        for it in items:
-            if it.batch_key:
-                final_groups.setdefault(it.batch_key, []).append(it)
-            else:
-                individuals.append(it)
-
-        batch_jobs = []
-        for key, group_items in final_groups.items():
-            original_count = len(original_groups.get(key, []))
-            any_renamed = any(gi.dest_was_modified for gi in group_items)
-            nothing_skipped = len(group_items) == original_count
-            if nothing_skipped and not any_renamed:
-                batch_jobs.append(BatchJob(key, self.dest_path, group_items))
-            else:
-                individuals.extend(group_items)
-
-        return batch_jobs, individuals
 
     # ---------------------------------------------------------------
     # Conflict resolution

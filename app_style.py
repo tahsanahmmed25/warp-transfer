@@ -231,35 +231,71 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     border-radius: 14px;
 }
 
-/* OnboardingWizard live connection-status banner */
-#StatusBannerWarning {
+/* OnboardingWizard & Dialogs live connection-status banners */
+#StatusBannerWarningContainer {
     border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 13px;
 }
-#StatusBannerWarning[theme="dark"] {
+#StatusBannerWarningContainer[theme="dark"] {
     background-color: rgba(224, 122, 63, 0.12);
     border: 1px solid rgba(224, 122, 63, 0.35);
+}
+#StatusBannerWarningContainer[theme="light"] {
+    background-color: rgba(196, 106, 41, 0.10);
+    border: 1px solid rgba(196, 106, 41, 0.30);
+}
+
+#StatusBannerNeutralContainer {
+    border-radius: 10px;
+}
+#StatusBannerNeutralContainer[theme="dark"] {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid #29293380;
+}
+#StatusBannerNeutralContainer[theme="light"] {
+    background-color: rgba(0, 0, 0, 0.03);
+    border: 1px solid #E9E9EE;
+}
+
+#StatusDismissButton {
+    background: transparent;
+    border: none;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 0px;
+}
+#StatusDismissButton[theme="dark"] {
+    color: #E0A15E;
+}
+#StatusDismissButton[theme="light"] {
+    color: #A85A24;
+}
+#StatusDismissButton:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#StatusBannerWarning {
+    border-radius: 10px;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+}
+#StatusBannerWarning[theme="dark"] {
     color: #E0A15E;
 }
 #StatusBannerWarning[theme="light"] {
-    background-color: rgba(196, 106, 41, 0.10);
-    border: 1px solid rgba(196, 106, 41, 0.30);
     color: #A85A24;
 }
 #StatusBannerNeutral {
     border-radius: 10px;
-    padding: 10px 14px;
     font-size: 13px;
+    background: transparent;
+    border: none;
 }
 #StatusBannerNeutral[theme="dark"] {
-    background-color: rgba(255, 255, 255, 0.04);
-    border: 1px solid #29293380;
     color: #9C9CA6;
 }
 #StatusBannerNeutral[theme="light"] {
-    background-color: rgba(0, 0, 0, 0.03);
-    border: 1px solid #E9E9EE;
     color: #6E6E76;
 }
 

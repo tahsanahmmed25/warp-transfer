@@ -38,11 +38,28 @@ class WirelessConnectDialog(QDialog):
         tabs.addTab(self._build_reconnect_tab(), "Reconnect")
         layout.addWidget(tabs)
 
-        self.status_label = QLabel("")
+        # Dismissable Status Banner
+        self.status_banner = QWidget(card)
+        self.status_banner.setObjectName("StatusBannerContainer")
+        status_banner_layout = QHBoxLayout(self.status_banner)
+        status_banner_layout.setContentsMargins(12, 8, 8, 8)
+        status_banner_layout.setSpacing(8)
+
+        self.status_label = QLabel("", self.status_banner)
         self.status_label.setObjectName("StatusBannerNeutral")
         self.status_label.setWordWrap(True)
-        self.status_label.setVisible(False)
-        layout.addWidget(self.status_label)
+        status_banner_layout.addWidget(self.status_label, 1)
+
+        self.status_dismiss_btn = QPushButton("✕", self.status_banner)
+        self.status_dismiss_btn.setObjectName("StatusDismissButton")
+        self.status_dismiss_btn.setFixedSize(22, 22)
+        self.status_dismiss_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.status_dismiss_btn.setToolTip("Dismiss notification")
+        self.status_dismiss_btn.clicked.connect(self._dismiss_status)
+        status_banner_layout.addWidget(self.status_dismiss_btn, 0, Qt.AlignmentFlag.AlignTop)
+
+        self.status_banner.setVisible(False)
+        layout.addWidget(self.status_banner)
 
         close_btn = QPushButton("Close")
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -146,11 +163,16 @@ class WirelessConnectDialog(QDialog):
 
     def _show_status(self, message: str, is_error: bool):
         self.status_label.setText(("\u26a0 " if is_error else "\u2713 ") + message)
+        self.status_banner.setObjectName("StatusBannerWarningContainer" if is_error else "StatusBannerNeutralContainer")
         self.status_label.setObjectName("StatusBannerWarning" if is_error else "StatusBannerNeutral")
-        self.status_label.style().unpolish(self.status_label)
-        self.status_label.style().polish(self.status_label)
-        tag_theme_recursive(self.status_label, self.is_dark)
-        self.status_label.setVisible(True)
+        self.status_banner.style().unpolish(self.status_banner)
+        self.status_banner.style().polish(self.status_banner)
+        tag_theme_recursive(self.status_banner, self.is_dark)
+        self.status_banner.setVisible(True)
+
+    def _dismiss_status(self):
+        self.status_banner.setVisible(False)
+        self.status_label.setText("")
 
     def _do_pair(self):
         host = self.pair_host_input.text().strip()
