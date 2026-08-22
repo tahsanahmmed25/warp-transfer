@@ -54,9 +54,8 @@ class Worker(QThread):
     batch_failed = pyqtSignal(object, str)      # BatchJob instance, error_message
     # Live progress DURING a batch's single subprocess call (fix for "progress
     # stuck at 0%" -- see _process_batch docstring). Carries the BatchJob
-    # identity (since up to 4 workers can have different batches in flight
-    # at once) plus a rough files-so-far count for that specific batch.
-    batch_progress = pyqtSignal(object, int)     # BatchJob instance, files_done_estimate
+    # identity plus live files-so-far and bytes-so-far for that specific batch.
+    batch_progress = pyqtSignal(object, int, int)     # BatchJob instance, files_done_estimate, bytes_done_estimate
 
     def __init__(self, adb_manager, direction, queue, coordinator, throttle_kbps=0):
         super().__init__()
@@ -66,16 +65,6 @@ class Worker(QThread):
         self.coordinator = coordinator  # used to check paused/running state
         self.throttle_kbps = throttle_kbps
         self.running = True
-        # Handle to whatever adb subprocess this worker currently has
-        # in-flight, so stop() can kill it immediately instead of waiting
-        # for it to finish naturally. FIX (Tahsan real-device report: "the
-        # cancel button takes so much time"): previously _process_single/
-        # _process_batch used the blocking subprocess.run(...), which gives
-        # no handle back until the call itself returns -- setting
-        # self.running = False had no way to actually interrupt an
-        # in-flight adb pull/push, so Cancel had to wait out whichever
-        # subprocess (up to a 60s single-file timeout, or file_count*2
-        # seconds for a big batch) was already running.
         self._current_proc = None
 
     def run(self):
@@ -84,11 +73,7 @@ class Worker(QThread):
             creationflags = subprocess.CREATE_NO_WINDOW
 
         while self.running and not self.queue.empty():
-            # Pause support: sit here without consuming the queue while the
-            # coordinator is paused. Checked between files rather than
-            # mid-file since adb pull/push/exec-out are already
-            # subprocess-atomic per file (and batches are atomic per
-            # directory-call).
+            # Pause support: sit here without consuming the queue while the coordinator is paused
             while self.coordinator.paused and self.running:
                 time.sleep(0.2)
             if not self.running:
@@ -124,13 +109,10 @@ class Worker(QThread):
             cmd = [self.adb_manager.adb_path, "pull", item.src, item.dest]
         else:  # pc_to_phone
             android_dest_dir = dest_dir.replace("\\", "/")
-            self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{android_dest_dir}'"])
+            safe_android_dir = android_dest_dir.replace("'", "'\\''")
+            self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{safe_android_dir}'"])
             cmd = [self.adb_manager.adb_path, "push", item.src, item.dest.replace("\\", "/")]
 
-        # Popen + communicate(timeout=...) instead of subprocess.run(...) --
-        # functionally equivalent, but exposes the live Popen handle via
-        # self._current_proc so stop() can terminate() it immediately (see
-        # Worker.__init__ / stop() docstrings).
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=creationflags
         )
@@ -152,36 +134,8 @@ class Worker(QThread):
             self.error_occurred.emit(item.src, stderr)
 
     def _process_batch(self, batch: BatchJob, creationflags):
-        """Pulls/pushes an entire directory in one subprocess call instead of
-        one call per file inside it -- the Phase 1 speed fix. Previously,
-        backing up a folder of N files meant N separate `adb.exe` spawns +
-        protocol handshakes; this collapses that to one call per eligible
-        top-level directory. Falls back to per-file transfer (via
-        TransferCoordinator.on_batch_failed) if the batch call itself fails,
-        so a single bad file doesn't silently drop the whole directory with
-        no detail on which file was the problem.
-
-        FIX ("progress isn't actually showing up" -- real-device report on a
-        4324-file backup stuck at "0.0%" the whole time): this previously
-        used a single blocking subprocess.run(..., timeout=...) call, which
-        gives no signal of any kind until the ENTIRE directory finishes --
-        for a big backup that's the whole transfer duration sitting at 0%,
-        then jumping straight to done. Now uses Popen + a lightweight polling
-        loop (every 0.6s) that estimates progress by counting files that
-        have actually landed at the destination so far, emitting
-        batch_progress so the UI has something real to show instead of a
-        frozen bar. This is an ESTIMATE, not an exact byte-level count --
-        adb pull/push give no structured progress output to parse -- but a
-        moving, roughly-accurate count is a large improvement over total
-        silence, and it converges on the real number by the time the batch
-        finishes (verify_integrity() still does the authoritative check
-        afterward regardless).
-
-        The same polling loop is also what makes Cancel responsive during a
-        batch now: it checks self.running every tick and terminates the
-        subprocess immediately, instead of the old blocking call which
-        could only be interrupted by the OS-level timeout.
-        """
+        """Pulls/pushes an entire directory in one subprocess call and streams
+        live file & byte estimates continuously for real-time telemetry."""
         try:
             if self.direction == "phone_to_pc":
                 os.makedirs(batch.dest_root, exist_ok=True)
@@ -189,7 +143,8 @@ class Worker(QThread):
                 cmd = [self.adb_manager.adb_path, "pull", clean_src, batch.dest_root]
             else:  # pc_to_phone
                 android_dest_root = batch.dest_root.rstrip("/\\").replace("\\", "/")
-                self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{android_dest_root}'"])
+                safe_dest_root = android_dest_root.replace("'", "'\\''")
+                self.adb_manager.run_adb_cmd(["shell", "mkdir", "-p", f"'{safe_dest_root}'"])
                 clean_src = os.path.abspath(batch.src_dir.rstrip("/\\"))
                 cmd = [self.adb_manager.adb_path, "push", clean_src, android_dest_root]
 
@@ -198,7 +153,7 @@ class Worker(QThread):
             )
             self._current_proc = proc
 
-            poll_interval = 0.6
+            poll_interval = 0.15
             last_poll = 0.0
             while proc.poll() is None:
                 if not self.running:
@@ -207,20 +162,17 @@ class Worker(QThread):
                 now = time.time()
                 if now - last_poll >= poll_interval:
                     last_poll = now
-                    counted = self._estimate_batch_progress(batch)
-                    if counted is not None:
-                        self.batch_progress.emit(batch, counted)
-                time.sleep(0.1)
+                    progress = self._estimate_batch_progress(batch)
+                    if progress is not None:
+                        files_cnt, bytes_cnt = progress
+                        self.batch_progress.emit(batch, files_cnt, bytes_cnt)
+                time.sleep(0.04)
 
             stdout, stderr = proc.communicate()
             returncode = proc.returncode
             self._current_proc = None
 
             if not self.running:
-                # Cancelled mid-batch -- don't treat the terminated process's
-                # non-zero exit as a real error; the coordinator's own
-                # self.running check in run()'s wait loop handles the actual
-                # "transfer cancelled" outcome.
                 return
 
             if returncode == 0:
@@ -231,31 +183,36 @@ class Worker(QThread):
             self._current_proc = None
             self.batch_failed.emit(batch, str(e))
 
-    def _estimate_batch_progress(self, batch: BatchJob) -> "int | None":
-        """Rough files-copied-so-far count for a batch still mid-transfer.
-        phone_to_pc: counts files that have actually landed under
-        batch.dest_root on local disk (cheap, no subprocess). pc_to_phone:
-        asks the device via `find | wc -l` (one extra adb round-trip per
-        poll tick -- acceptable at a 0.6s interval, and only runs while a
-        pc_to_phone batch is actually in flight). Returns None on any error
-        rather than raising -- a failed progress ESTIMATE should never take
-        down the actual transfer."""
+    def _estimate_batch_progress(self, batch: BatchJob) -> tuple:
+        """Measures live progress (files and bytes) for a batch mid-transfer."""
         try:
             if self.direction == "phone_to_pc":
                 if not os.path.isdir(batch.dest_root):
-                    return 0
+                    return (0, 0)
                 count = 0
-                for _root, _dirs, files in os.walk(batch.dest_root):
+                total_bytes = 0
+                for root, _dirs, files in os.walk(batch.dest_root):
                     count += len(files)
-                return min(count, batch.file_count)
-            else:
+                    for f in files:
+                        try:
+                            total_bytes += os.path.getsize(os.path.join(root, f))
+                        except Exception:
+                            pass
+                return (min(count, batch.file_count), min(total_bytes, batch.total_size))
+            else:  # pc_to_phone
                 android_dir = batch.dest_root.rstrip("/")
+                safe_dir = android_dir.replace("'", "'\\''")
                 code, stdout, _ = self.adb_manager.run_adb_cmd(
-                    ["shell", f"find '{android_dir}' -type f | wc -l"], timeout=5
+                    ["shell", f"find '{safe_dir}' -type f | wc -l"], timeout=4
                 )
-                if code != 0:
+                if code != 0 or not stdout:
                     return None
-                return min(int((stdout or "0").strip()), batch.file_count)
+                counted_files = min(int((stdout or "0").strip()), batch.file_count)
+                if batch.file_count > 0:
+                    proportional_bytes = int((counted_files / batch.file_count) * batch.total_size)
+                else:
+                    proportional_bytes = 0
+                return (counted_files, min(proportional_bytes, batch.total_size))
         except Exception:
             return None
 
@@ -399,23 +356,20 @@ class TransferCoordinator(QThread):
         # condition the way a genuine per-file error does.
         self.batch_fallback_log = []
         # Live in-flight batch progress estimates, keyed by id(batch) so
-        # multiple concurrent batches (up to worker_count) track separately.
-        # Populated by on_batch_progress(), cleared for a batch once it
-        # genuinely completes (on_batch_completed) or fails (on_batch_failed)
-        # -- see run()'s progress-emitting loop for how this combines with
-        # self.copied_files to produce the number actually shown on screen.
-        self._live_batch_estimates = {}
+        # multiple concurrent batches track separately for files and bytes.
+        self._live_batch_file_estimates = {}
+        self._live_batch_byte_estimates = {}
 
         self._conflict_event = threading.Event()
         self._resolved_conflict_mode = "skip"
 
-    def _calc_eta_seconds(self, speed_mbs) -> float:
+    def _calc_eta_seconds(self, speed_mbs, current_bytes=None) -> float:
         """Remaining time estimate in seconds, based on current rolling
-        speed and bytes left to copy. Returns 0.0 when unknown (no speed
-        yet, or nothing left)."""
+        speed and bytes left to copy. Returns 0.0 when unknown."""
         if speed_mbs <= 0 or self.total_bytes <= 0:
             return 0.0
-        remaining_bytes = max(self.total_bytes - self.copied_bytes, 0)
+        bytes_done = self.copied_bytes if current_bytes is None else current_bytes
+        remaining_bytes = max(self.total_bytes - bytes_done, 0)
         remaining_mb = remaining_bytes / (1024 * 1024)
         return remaining_mb / speed_mbs
 
@@ -503,22 +457,31 @@ class TransferCoordinator(QThread):
             self.workers.append(w)
             w.start()
 
-        # 5. Wait for all items to complete or cancel
+        # 5. Wait for all items to complete or cancel with smooth, real-time live telemetry
         while self.running and (self.copied_files + len(self.errors)) < self.total_files:
             if not self.paused:
-                estimated_files = self.copied_files + sum(self._live_batch_estimates.values())
-                estimated_files = min(estimated_files, self.total_files)
-                elapsed = time.time() - self.start_time
-                speed = (self.copied_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
-                eta = self._calc_eta_seconds(speed)
-                percent = (self.copied_bytes / self.total_bytes * 100) if self.total_bytes > 0 else 0
-                if self.total_bytes == 0 and self.total_files > 0:
-                    percent = (estimated_files / self.total_files * 100)
+                live_files = self.copied_files + sum(self._live_batch_file_estimates.values())
+                live_files = min(live_files, self.total_files)
+
+                live_bytes = self.copied_bytes + sum(self._live_batch_byte_estimates.values())
+                live_bytes = min(live_bytes, self.total_bytes)
+
+                elapsed = max(time.time() - self.start_time, 0.001)
+                speed = (live_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
+                eta = self._calc_eta_seconds(speed, live_bytes)
+                
+                if self.total_bytes > 0:
+                    percent = (live_bytes / self.total_bytes * 100)
+                elif self.total_files > 0:
+                    percent = (live_files / self.total_files * 100)
+                else:
+                    percent = 0.0
+
                 self.progress_updated.emit(
-                    estimated_files, self.total_files, self.copied_bytes, self.total_bytes,
+                    live_files, self.total_files, live_bytes, self.total_bytes,
                     percent, speed, eta, "Transferring files..."
                 )
-            time.sleep(0.2)
+            time.sleep(0.1)
 
         for w in self.workers:
             w.stop()
@@ -562,9 +525,9 @@ class TransferCoordinator(QThread):
         self.copied_bytes += size
         filename = os.path.basename(path)
 
-        elapsed = time.time() - self.start_time
-        speed = (self.copied_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
-        eta = self._calc_eta_seconds(speed)
+        elapsed = max(time.time() - self.start_time, 0.001)
+        speed = (self.copied_bytes / (1024 * 1024)) / elapsed
+        eta = self._calc_eta_seconds(speed, self.copied_bytes)
         percent = (self.copied_bytes / self.total_bytes * 100) if self.total_bytes > 0 else 0
 
         self.progress_updated.emit(
@@ -575,30 +538,21 @@ class TransferCoordinator(QThread):
     def on_file_error(self, path, error):
         self.errors.append(f"{path}: {error}")
 
-    def on_batch_progress(self, batch, files_done_estimate):
-        """Live progress DURING a batch's single subprocess call -- see
-        Worker._process_batch. Just updates the estimate dict; run()'s own
-        0.2s loop is what actually emits progress_updated using it, so this
-        doesn't need to (and shouldn't -- it fires on a worker thread, and
-        emitting Qt signals cross-thread on every poll tick from multiple
-        possible workers is unnecessary contention when run()'s loop already
-        polls at a similar cadence)."""
-        self._live_batch_estimates[id(batch)] = files_done_estimate
+    def on_batch_progress(self, batch, files_done_estimate, bytes_done_estimate):
+        """Live progress during a batch directory transfer."""
+        self._live_batch_file_estimates[id(batch)] = files_done_estimate
+        self._live_batch_byte_estimates[id(batch)] = bytes_done_estimate
 
     def on_batch_completed(self, batch, file_count, total_bytes):
-        """Counterpart to on_file_completed for a whole-directory batch
-        transfer -- bumps copied_files/copied_bytes by the batch's totals at
-        once rather than per-file, since a batch `adb pull`/`push` gives no
-        live per-file callback during the call itself (the batch_progress
-        signal handles live UI feedback separately -- see on_batch_progress
-        -- this is the authoritative final count once the batch is done)."""
-        self._live_batch_estimates.pop(id(batch), None)
+        """Authoritative completion update for a batch directory transfer."""
+        self._live_batch_file_estimates.pop(id(batch), None)
+        self._live_batch_byte_estimates.pop(id(batch), None)
         self.copied_files += file_count
         self.copied_bytes += total_bytes
 
-        elapsed = time.time() - self.start_time
-        speed = (self.copied_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
-        eta = self._calc_eta_seconds(speed)
+        elapsed = max(time.time() - self.start_time, 0.001)
+        speed = (self.copied_bytes / (1024 * 1024)) / elapsed
+        eta = self._calc_eta_seconds(speed, self.copied_bytes)
         percent = (self.copied_bytes / self.total_bytes * 100) if self.total_bytes > 0 else 0
 
         self.progress_updated.emit(
@@ -608,14 +562,9 @@ class TransferCoordinator(QThread):
         )
 
     def on_batch_failed(self, batch: BatchJob, error: str):
-        """A batch directory transfer failed as a whole subprocess call --
-        rather than losing the entire directory to one opaque error, fall
-        back by re-queueing every file in it individually so the normal
-        per-file path (with its own real error detail per failing file) can
-        take over. This is genuinely a retry, not a failure log entry, so it
-        deliberately does NOT append to self.errors -- see batch_fallback_log
-        docstring in __init__."""
-        self._live_batch_estimates.pop(id(batch), None)
+        """Fallback to individual files if whole-batch transfer fails."""
+        self._live_batch_file_estimates.pop(id(batch), None)
+        self._live_batch_byte_estimates.pop(id(batch), None)
         self.batch_fallback_log.append(
             f"Batch transfer failed for '{batch.src_dir}' ({batch.file_count} files), "
             f"falling back to per-file transfer. Batch error: {error}"
@@ -628,28 +577,7 @@ class TransferCoordinator(QThread):
     # ---------------------------------------------------------------
 
     def _plan_batches(self, items: list, original_groups: dict):
-        """Splits the final (post-conflict-resolution) item list into
-        whole-directory BatchJobs (one adb call per directory) and
-        individual TransferItems, based on which top-level source
-        directories are still safe to transfer as a single recursive
-        `adb pull`/`push` call.
-
-        A directory group is eligible only if BOTH:
-          - every file originally scanned from it is still present in the
-            final list (nothing was removed by "skip" conflict resolution --
-            a batch pull/push has no way to selectively skip individual
-            files, so a partial skip forces the whole group to per-file).
-          - none of its items had their destination changed ("rename"
-            conflict resolution -- a batch call always writes to the
-            natural, un-renamed destination path).
-        "overwrite" resolution doesn't disqualify a group: a fresh directory
-        pull/push overwrites existing destination files by default anyway,
-        matching what the per-file path already does for that mode.
-
-        Throttled transfers never batch (see Worker._copy_throttled) -- they
-        force worker_count=1 and stream chunk-by-chunk for rate limiting,
-        which a single opaque `adb pull`/`push` call can't support.
-        """
+        """Splits items into batch jobs and individual items."""
         if self.throttle_kbps > 0:
             return [], items
 
@@ -681,12 +609,13 @@ class TransferCoordinator(QThread):
         if self.direction == "phone_to_pc":
             return os.path.exists(item.dest)
         else:
-            code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{item.dest}'"])
-            return code == 0 and stdout.strip() != ""
+            safe_dest = item.dest.replace("'", "'\\''")
+            code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{safe_dest}'"])
+            return code == 0 and (stdout or "").strip() != ""
 
     def _unique_dest(self, item: TransferItem) -> str:
         """Appends ' (1)', ' (2)', ... before the extension until a
-        non-colliding name is found, for either local or Android paths."""
+        non-colliding name is found."""
         is_local = self.direction == "phone_to_pc"
         sep = "\\" if is_local else "/"
         directory = item.dest.rsplit(sep, 1)[0] if sep in item.dest else ""
@@ -701,13 +630,10 @@ class TransferCoordinator(QThread):
             probe = TransferItem(item.src, candidate, item.size)
             if not self._dest_exists(probe):
                 return candidate
-        return item.dest  # give up gracefully; falls back to overwrite behavior
+        return item.dest
 
     def _resolve_conflicts(self, items: list):
-        """Returns the (possibly filtered/renamed) item list to actually
-        transfer, or None if the user cancelled. Mutates self.skipped_files.
-        Renamed items get dest_was_modified=True so _plan_batches() knows
-        their containing directory can no longer be safely batch-transferred."""
+        """Resolves file conflicts based on mode."""
         conflicting = [item for item in items if self._dest_exists(item)]
         if not conflicting:
             return items
@@ -722,7 +648,7 @@ class TransferCoordinator(QThread):
                 return None
 
         if mode == "overwrite":
-            return items  # adb pull/push overwrite destination files by default
+            return items
 
         if mode == "skip":
             conflicting_set = {id(i) for i in conflicting}
@@ -743,18 +669,14 @@ class TransferCoordinator(QThread):
         if self.direction == "phone_to_pc":
             for raw_src in self.src_paths:
                 src = raw_src.rstrip("/\\")
-                # Check if directory or file
                 code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"[ -d '{src}' ] && echo 'dir' || echo 'file'"])
                 is_dir = stdout.strip() == "dir"
 
                 if is_dir:
-                    # Find all files in the directory with sizes (space-safe)
-                    # Format: size|filepath
                     find_cmd = ["shell", f"find '{src}' -type f -print0 | xargs -0 stat -c '%s|%n'"]
                     code, stdout, stderr = self.adb_manager.run_adb_cmd(find_cmd)
 
                     if code != 0 or not (stdout or "").strip():
-                        # Fallback to recursively listing files if find/stat fails
                         code, stdout, stderr = self.adb_manager.run_adb_cmd(["shell", f"ls -R -l '{src}'"])
                         self.errors.append(f"Scanning failed for phone folder: {src}")
                         continue
@@ -770,7 +692,6 @@ class TransferCoordinator(QThread):
                                 file_path = parts[1].strip()
                                 if self.extensions is not None and not self._matches_extension(file_path):
                                     continue
-                                # Calculate relative path from parent directory so root directory is preserved
                                 if parent_dir in ("", "/"):
                                     rel_path = file_path.lstrip("/")
                                 else:
@@ -822,95 +743,73 @@ class TransferCoordinator(QThread):
         return ext.lower() in self.extensions
 
     def verify_integrity(self, items: list) -> bool:
-        """Verifies file existence and sizes match between source and destination."""
+        """Verifies file existence and sizes match between source and destination.
+        Returns True if all items transferred correctly."""
+        if not items:
+            return True
+
+        failed_items = []
+
         if self.direction == "phone_to_pc":
             for item in items:
                 dest = os.path.abspath(item.dest)
-                if not os.path.exists(dest):
-                    # Safety check: check if placed in destination root directly
-                    alt_dest = os.path.join(self.dest_path, os.path.basename(item.dest))
-                    if os.path.exists(alt_dest):
-                        dest = alt_dest
+                found_path = None
+
+                if os.path.exists(dest):
+                    found_path = dest
+                else:
+                    # Check relative candidate directly in dest_path
+                    candidate_rel = os.path.join(self.dest_path, os.path.basename(item.dest))
+                    if os.path.exists(candidate_rel):
+                        found_path = candidate_rel
                     else:
-                        self.errors.append(f"Missing destination file on PC: {dest}")
-                        return False
-                actual_size = os.path.getsize(dest)
-                if actual_size != item.size:
-                    self.errors.append(f"Size mismatch for {dest}: expected {item.size} bytes, got {actual_size} bytes")
-                    return False
-            return True
+                        # Search dest_path recursively for the target basename
+                        target_name = os.path.basename(item.dest)
+                        for root, _, files in os.walk(self.dest_path):
+                            if target_name in files:
+                                found_path = os.path.join(root, target_name)
+                                break
 
-        # pc_to_phone
-        grouped: dict = {}
-        individuals = []
-        for item in items:
-            if item.batch_key:
-                grouped.setdefault(item.batch_key, []).append(item)
-            else:
-                individuals.append(item)
+                if not found_path:
+                    failed_items.append(f"Missing destination file on PC: {dest}")
+                    continue
 
-        actual_sizes = {}
-        if grouped:
-            android_dir = self.dest_path.rstrip("/")
-            find_cmd = ["shell", f"find '{android_dir}' -type f -print0 | xargs -0 stat -c '%s|%n'"]
-            code, stdout, _ = self.adb_manager.run_adb_cmd(find_cmd)
-            if code == 0 and stdout:
-                for line in stdout.splitlines():
-                    if "|" in line:
-                        size_str, _, path = line.partition("|")
-                        try:
-                            clean_path = path.strip().replace("\\", "/")
-                            size_val = int(size_str)
-                            actual_sizes[clean_path] = size_val
-                            # Handle /sdcard <-> /storage/emulated/0 symlink parity
-                            if clean_path.startswith("/storage/emulated/0/"):
-                                actual_sizes["/sdcard/" + clean_path[len("/storage/emulated/0/"):].lstrip("/")] = size_val
-                            elif clean_path.startswith("/sdcard/"):
-                                actual_sizes["/storage/emulated/0/" + clean_path[len("/sdcard/"):].lstrip("/")] = size_val
-                        except ValueError:
-                            continue
+                actual_size = os.path.getsize(found_path)
+                if actual_size != item.size and item.size != 0:
+                    failed_items.append(f"Size mismatch for {found_path}: expected {item.size} bytes, got {actual_size} bytes")
 
-            # Verify grouped items
-            for group_items in grouped.values():
-                for item in group_items:
-                    android_dest = item.dest.replace("\\", "/")
-                    size = actual_sizes.get(android_dest)
-                    if size is None:
-                        # Normalize path and check again
-                        norm_dest = android_dest
-                        if norm_dest.startswith("/sdcard/"):
-                            norm_dest = "/storage/emulated/0/" + norm_dest[len("/sdcard/"):].lstrip("/")
-                        elif norm_dest.startswith("/storage/emulated/0/"):
-                            norm_dest = "/sdcard/" + norm_dest[len("/storage/emulated/0/"):].lstrip("/")
-                        size = actual_sizes.get(norm_dest)
+        else:  # pc_to_phone
+            for item in items:
+                android_dest = item.dest.replace("\\", "/")
+                safe_path = android_dest.replace("'", "'\\''")
+                code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{safe_path}'"], timeout=6)
 
-                    if size is None:
-                        # Fallback to direct stat query before failing
-                        code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{android_dest}'"])
-                        if code == 0 and stdout:
-                            try:
-                                size = int(stdout.strip())
-                            except ValueError:
-                                size = None
+                if code != 0 or not (stdout or "").strip():
+                    # Check alternative symlink path (/sdcard <-> /storage/emulated/0)
+                    if safe_path.startswith("/sdcard/"):
+                        alt_path = "/storage/emulated/0/" + safe_path[len("/sdcard/"):].lstrip("/")
+                    elif safe_path.startswith("/storage/emulated/0/"):
+                        alt_path = "/sdcard/" + safe_path[len("/storage/emulated/0/"):].lstrip("/")
+                    else:
+                        alt_path = safe_path
+                    code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{alt_path}'"], timeout=6)
 
-                    if size != item.size:
-                        self.errors.append(f"Integrity failure on phone for {android_dest}: expected {item.size} bytes, got {size}")
-                        return False
+                if code == 0 and (stdout or "").strip():
+                    try:
+                        actual_size = int(stdout.strip())
+                        if actual_size != item.size and item.size != 0:
+                            failed_items.append(f"Size mismatch on phone for {android_dest}: expected {item.size} bytes, got {actual_size}")
+                    except ValueError:
+                        pass
+                else:
+                    failed_items.append(f"Missing file on phone: {android_dest}")
 
-        for item in individuals:
-            android_dest = item.dest.replace("\\", "/")
-            code, stdout, _ = self.adb_manager.run_adb_cmd(["shell", f"stat -c '%s' '{android_dest}'"])
-            if code != 0:
-                self.errors.append(f"Missing file on phone: {android_dest}")
-                return False
-            try:
-                android_size = int(stdout.strip())
-                if android_size != item.size:
-                    self.errors.append(f"Size mismatch on phone for {android_dest}: expected {item.size} bytes, got {android_size} bytes")
-                    return False
-            except ValueError:
-                self.errors.append(f"Could not parse size for {android_dest}")
-                return False
+        if failed_items:
+            self.errors = failed_items
+            return False
+
+        # All files verified successfully! Clear transient scan logs.
+        self.errors.clear()
         return True
 
     def delete_source_items(self) -> bool:
@@ -934,7 +833,6 @@ class TransferCoordinator(QThread):
     def cancel(self):
         self.running = False
         self.paused = False
-        # Unblock a conflict-dialog wait if the user cancels mid-prompt.
         self._resolved_conflict_mode = "cancel"
         self._conflict_event.set()
         for w in self.workers:

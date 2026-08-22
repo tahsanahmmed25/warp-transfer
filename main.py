@@ -1699,55 +1699,101 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(stepper_box)
         
+        # Status header row with live percentage badge
+        status_row = QHBoxLayout()
+        status_row.setSpacing(10)
+        
         self.transfer_file_label = QLabel("Initializing engine...", card)
         self.transfer_file_label.setObjectName("TransferFileLabel")
-        self.transfer_file_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.transfer_file_label)
+        self.transfer_file_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        status_row.addWidget(self.transfer_file_label, 1)
+
+        self.transfer_percent_badge = QLabel("0.0%", card)
+        self.transfer_percent_badge.setObjectName("PercentBadge")
+        self.transfer_percent_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        status_row.addWidget(self.transfer_percent_badge, 0)
+
+        layout.addLayout(status_row)
         
         self.transfer_bar = QProgressBar(card)
-        self.transfer_bar.setFixedHeight(12)
+        self.transfer_bar.setFixedHeight(14)
         self.transfer_bar.setValue(0)
         layout.addWidget(self.transfer_bar)
         
-        # Detail telemetry card
+        # Detail telemetry card (4-tile modern grid)
         detail_card = QWidget()
         detail_card.setObjectName("InnerCard")
         detail_layout = QVBoxLayout(detail_card)
-        detail_layout.setContentsMargins(16, 12, 16, 12)
-        detail_layout.setSpacing(8)
+        detail_layout.setContentsMargins(14, 12, 14, 12)
+        detail_layout.setSpacing(10)
 
-        # Row 1: Data Size & Files Count
-        metrics_row1 = QHBoxLayout()
-        metrics_row1.setSpacing(12)
+        # Row 1: Data & Files
+        tiles_row1 = QHBoxLayout()
+        tiles_row1.setSpacing(10)
         
-        self.metric_size_label = QLabel("Data: 0 B / 0 B (0%)", detail_card)
-        self.metric_size_label.setObjectName("TransferDetailLabel")
-        self.metric_size_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        
-        self.metric_files_label = QLabel("Files: 0 / 0", detail_card)
-        self.metric_files_label.setObjectName("TransferDetailLabel")
-        self.metric_files_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        
-        metrics_row1.addWidget(self.metric_size_label, 1)
-        metrics_row1.addWidget(self.metric_files_label, 1)
-        detail_layout.addLayout(metrics_row1)
+        # Tile 1: Data
+        tile_data = QWidget(detail_card)
+        tile_data.setObjectName("MetricTile")
+        tdata_layout = QVBoxLayout(tile_data)
+        tdata_layout.setContentsMargins(10, 8, 10, 8)
+        tdata_layout.setSpacing(2)
+        lbl_data_title = QLabel("DATA TRANSFERRED", tile_data)
+        lbl_data_title.setObjectName("MetricTileLabel")
+        self.metric_data_val = QLabel("0 B / 0 B", tile_data)
+        self.metric_data_val.setObjectName("MetricTileValue")
+        tdata_layout.addWidget(lbl_data_title)
+        tdata_layout.addWidget(self.metric_data_val)
+        tiles_row1.addWidget(tile_data, 1)
+
+        # Tile 2: Files
+        tile_files = QWidget(detail_card)
+        tile_files.setObjectName("MetricTile")
+        tfiles_layout = QVBoxLayout(tile_files)
+        tfiles_layout.setContentsMargins(10, 8, 10, 8)
+        tfiles_layout.setSpacing(2)
+        lbl_files_title = QLabel("FILES PROCESSED", tile_files)
+        lbl_files_title.setObjectName("MetricTileLabel")
+        self.metric_files_val = QLabel("0 / 0", tile_files)
+        self.metric_files_val.setObjectName("MetricTileValue")
+        tfiles_layout.addWidget(lbl_files_title)
+        tfiles_layout.addWidget(self.metric_files_val)
+        tiles_row1.addWidget(tile_files, 1)
+
+        detail_layout.addLayout(tiles_row1)
 
         # Row 2: Speed & ETA
-        metrics_row2 = QHBoxLayout()
-        metrics_row2.setSpacing(12)
-        
-        self.metric_speed_label = QLabel("Speed: -- MB/s", detail_card)
-        self.metric_speed_label.setObjectName("TransferDetailLabel")
-        self.metric_speed_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        
-        self.metric_eta_label = QLabel("ETA: calculating...", detail_card)
-        self.metric_eta_label.setObjectName("TransferDetailLabel")
-        self.metric_eta_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        
-        metrics_row2.addWidget(self.metric_speed_label, 1)
-        metrics_row2.addWidget(self.metric_eta_label, 1)
-        detail_layout.addLayout(metrics_row2)
+        tiles_row2 = QHBoxLayout()
+        tiles_row2.setSpacing(10)
 
+        # Tile 3: Speed
+        tile_speed = QWidget(detail_card)
+        tile_speed.setObjectName("MetricTile")
+        tspeed_layout = QVBoxLayout(tile_speed)
+        tspeed_layout.setContentsMargins(10, 8, 10, 8)
+        tspeed_layout.setSpacing(2)
+        lbl_speed_title = QLabel("TRANSFER SPEED", tile_speed)
+        lbl_speed_title.setObjectName("MetricTileLabel")
+        self.metric_speed_val = QLabel("-- MB/s", tile_speed)
+        self.metric_speed_val.setObjectName("MetricTileValue")
+        tspeed_layout.addWidget(lbl_speed_title)
+        tspeed_layout.addWidget(self.metric_speed_val)
+        tiles_row2.addWidget(tile_speed, 1)
+
+        # Tile 4: ETA
+        tile_eta = QWidget(detail_card)
+        tile_eta.setObjectName("MetricTile")
+        teta_layout = QVBoxLayout(tile_eta)
+        teta_layout.setContentsMargins(10, 8, 10, 8)
+        teta_layout.setSpacing(2)
+        lbl_eta_title = QLabel("ESTIMATED TIME", tile_eta)
+        lbl_eta_title.setObjectName("MetricTileLabel")
+        self.metric_eta_val = QLabel("calculating...", tile_eta)
+        self.metric_eta_val.setObjectName("MetricTileValue")
+        teta_layout.addWidget(lbl_eta_title)
+        teta_layout.addWidget(self.metric_eta_val)
+        tiles_row2.addWidget(tile_eta, 1)
+
+        detail_layout.addLayout(tiles_row2)
         layout.addWidget(detail_card)
 
         # Controls Row
@@ -1866,8 +1912,8 @@ class MainWindow(QMainWindow):
         if paused:
             self.transfer_pause_btn.setText("Resume")
             self.transfer_pause_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("play", self.is_dark_mode), QSize(13, 13))))
-            self.metric_speed_label.setText("Speed: 0 KB/s")
-            self.metric_eta_label.setText("ETA: Paused")
+            self.metric_speed_val.setText("0 KB/s")
+            self.metric_eta_val.setText("Paused")
         else:
             self.transfer_pause_btn.setText("Pause")
             self.transfer_pause_btn.setIcon(QIcon(get_svg_pixmap(get_svg_content("pause", self.is_dark_mode), QSize(13, 13))))
@@ -1914,23 +1960,21 @@ class MainWindow(QMainWindow):
         if len(current_file) > 52:
             current_file = current_file[:24] + "..." + current_file[-24:]
         self.transfer_file_label.setText(current_file)
+        self.transfer_percent_badge.setText(f"{percent:.1f}%")
         self.transfer_bar.setValue(int(percent))
         
         if total_bytes > 0:
-            size_str = f"{self._format_bytes(current_bytes)} / {self._format_bytes(total_bytes)} ({percent:.1f}%)"
-        elif total_files > 0:
-            size_str = f"{percent:.1f}%"
+            self.metric_data_val.setText(f"{self._format_bytes(current_bytes)} / {self._format_bytes(total_bytes)}")
         else:
-            size_str = "Calculating..."
-        self.metric_size_label.setText(f"Data: {size_str}")
+            self.metric_data_val.setText(f"{self._format_bytes(current_bytes)}")
 
         if total_files > 0:
-            self.metric_files_label.setText(f"Files: {current_files} / {total_files}")
+            self.metric_files_val.setText(f"{current_files} / {total_files}")
         else:
-            self.metric_files_label.setText("Files: scanning...")
+            self.metric_files_val.setText("scanning...")
 
-        self.metric_speed_label.setText(f"Speed: {self._format_speed(speed_mbs)}")
-        self.metric_eta_label.setText(f"ETA: {self._format_eta(eta_seconds)}")
+        self.metric_speed_val.setText(self._format_speed(speed_mbs))
+        self.metric_eta_val.setText(self._format_eta(eta_seconds))
 
     def cancel_active_transfer(self):
         if self.active_coordinator:

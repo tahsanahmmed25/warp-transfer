@@ -413,6 +413,62 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     font-size: 12px;
 }
 
+#PercentBadge {
+    font-family: "Segoe UI Variable Display", "Segoe UI", "Inter", sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+#PercentBadge[theme="dark"] {
+    background-color: rgba(212, 175, 55, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    color: #F59E0B;
+}
+#PercentBadge[theme="light"] {
+    background-color: rgba(184, 134, 11, 0.12);
+    border: 1px solid rgba(184, 134, 11, 0.30);
+    color: #B8860B;
+}
+
+#MetricTile {
+    border-radius: 10px;
+    padding: 8px 12px;
+}
+#MetricTile[theme="dark"] {
+    background-color: #1A1A20;
+    border: 1px solid #272730;
+}
+#MetricTile[theme="light"] {
+    background-color: #F2F2F7;
+    border: 1px solid #E5E5EA;
+}
+
+#MetricTileLabel {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+#MetricTileLabel[theme="dark"] {
+    color: #8E8E93;
+}
+#MetricTileLabel[theme="light"] {
+    color: #6E6E73;
+}
+
+#MetricTileValue {
+    font-family: "Segoe UI Variable Display", "Segoe UI", "Inter", sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+}
+#MetricTileValue[theme="dark"] {
+    color: #F4F4F5;
+}
+#MetricTileValue[theme="light"] {
+    color: #1C1C1E;
+}
+
 /* Buttons */
 QPushButton {
     border-radius: 10px;
